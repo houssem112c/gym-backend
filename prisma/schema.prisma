@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  password     String
+  name         String
+  role         Role        @default(USER)
+  isActive     Boolean     @default(true)
+  refreshToken String?     // Store refresh token for JWT
+  contacts     Contact[]   // User's contact messages
+  bmiRecords   BmiRecord[] // User's BMI records
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model Course {
+  id          String            @id @default(uuid())
+  title       String
+  description String?
+  duration    Int // duration in minutes
+  capacity    Int // max participants
+  instructor  String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  schedules   CourseSchedule[]
+
+  @@map("courses")
+}
+
+model CourseSchedule {
+  id           String        @id @default(uuid())
+  courseId     String
+  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  // Session details
+  title        String? // Optional session title
+  coachName    String? // Coach/Instructor name
+  
+  // For one-time events
+  specificDate DateTime?
+  
+  // For recurring events
+  dayOfWeek    Int? // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime    String // Format: "HH:mm"
+  endTime      String // Format: "HH:mm"
+  
+  // Recurring period
+  startDate    DateTime? // Start of recurring period
+  endDate      DateTime? // End of recurring period (null = indefinite)
+  
+  isRecurring  Boolean       @default(false)
+  isActive     Boolean       @default(true)
+  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("course_schedules")
+}
+
+model VideoCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  slug        String   @unique
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  videos      Video[]
+
+  @@map("video_categories")
+}
+
+model Video {
+  id          String        @id @default(uuid())
+  title       String
+  description String?
+  url         String // YouTube URL or video file URL
+  thumbnail   String?
+  duration    Int? // duration in seconds
+  categoryId  String
+  category    VideoCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  order       Int           @default(0)
+  isPublished Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("videos")
+}
+
+model Contact {
+  id         String   @id @default(uuid())
+  userId     String?  // Optional: authenticated user
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  email      String
+  phone      String?
+  subject    String
+  message    String
+  isRead     Boolean  @default(false)
+  
+  // Admin response
+  adminResponse String? // Admin's response to the message
+  respondedAt   DateTime? // When admin responded
+  respondedBy   String? // Admin user ID who responded
+  
+  // Message status
+  status        ContactStatus @default(OPEN)
+  priority      ContactPriority @default(NORMAL)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contacts")
+}
+
+enum ContactStatus {
+  OPEN
+  IN_PROGRESS
+  RESPONDED
+  CLOSED
+}
+
+enum ContactPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Location {
+  id          String   @id @default(uuid())
+  name        String // Gym location name
+  description String? // Description of the location
+  latitude    Float // Latitude coordinate
+  longitude   Float // Longitude coordinate
+  address     String? // Full address
+  phone       String? // Contact phone
+  email       String? // Contact email
+  hours       String? // Opening hours
+  isActive    Boolean  @default(true)
+  order       Int      @default(0) // Display order
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("locations")
+}
+
+model BmiRecord {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  age          Int
+  gender       Gender
+  height       Float         // Height in meters
+  weight       Float         // Weight in kilograms
+  bmiValue     Float         // Calculated BMI value
+  category     String        // BMI category (e.g., "Normal", "Overweight", etc.)
+  status       BmiStatus     // Health status (OK, CAUTION, NOT_OK)
+  notes        String?       // Additional notes or recommendations
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("bmi_records")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum BmiStatus {
+  OK
+  CAUTION
+  NOT_OK
+}
