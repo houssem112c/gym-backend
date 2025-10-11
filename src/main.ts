@@ -16,7 +16,11 @@ async function bootstrap() {
         /^http:\/\/localhost:\d+$/  // Allow any localhost port for Flutter web dev server
       ]
     : [
-        // Add your production domains here
+        // Allow localhost for development and testing
+        'http://localhost:3000',
+        'http://localhost:3002', 
+        /^http:\/\/localhost:\d+$/,
+        // Add your production domains when you deploy frontend/admin
         process.env.FRONTEND_URL,
         process.env.ADMIN_URL,
       ].filter(Boolean);
