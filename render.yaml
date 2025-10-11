@@ -14,10 +14,6 @@ services:
         value: "7d"
       - key: NODE_ENV
         value: production
-    disk:
-      name: uploads
-      mountPath: /opt/render/project/src/uploads
-      sizeGB: 1
 
 databases:
   - name: gym-postgres
