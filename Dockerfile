@@ -4,24 +4,29 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
+
+# Install ALL dependencies (including devDependencies needed for build)
+RUN npm ci && npm cache clean --force
+
+# Copy prisma directory
 COPY prisma ./prisma/
-
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy source code
-COPY . .
 
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build the application
+# Copy source code
+COPY . .
+
+# Build the application (requires devDependencies)
 RUN npm run build
 
-# Create uploads directory
+# Create uploads directory in tmp (ephemeral storage)
 RUN mkdir -p /tmp/uploads
+
+# Remove devDependencies to reduce image size (optional)
+RUN npm prune --production
 
 # Expose port
 EXPOSE 3001
