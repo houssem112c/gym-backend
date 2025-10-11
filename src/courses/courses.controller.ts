@@ -1,37 +1,58 @@
 import {
-    Controller,
-    Get,
-    Post,
-    Body,
-    Patch,
-    Param,
-    Delete,
-    Query,
-    UseGuards,
-    UseInterceptors,
-    UploadedFiles,
-    Put,
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  UseInterceptors,
+  UploadedFiles,
+  Put,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import { Express } from 'express';
+import { existsSync, mkdirSync } from 'fs';
 import { CoursesService } from './courses.service';
 import { CreateCourseDto, UpdateCourseDto, CreateScheduleDto, UpdateScheduleDto } from './dto/course.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 // Multer configuration for file uploads
+// Note: On Render free tier, use /tmp for temporary storage (files will be lost on restart)
 const storage = diskStorage({
   destination: (req, file, cb) => {
+    // Use /tmp for production (Render) or ./uploads for local development
+    const baseDir = process.env.NODE_ENV === 'production' ? '/tmp' : './uploads';
+    
+    let targetDir;
     if (file.fieldname === 'video') {
-      cb(null, './uploads/videos');
+      targetDir = `${baseDir}/videos`;
     } else if (file.fieldname === 'thumbnail') {
-      cb(null, './uploads/thumbnails');
+      targetDir = `${baseDir}/thumbnails`;
+    } else {
+      return cb(new Error('Invalid field name'), null);
+    }
+    
+    // Create directory if it doesn't exist
+    try {
+      if (!existsSync(targetDir)) {
+        mkdirSync(targetDir, { recursive: true });
+        console.log(`Created directory: ${targetDir}`);
+      }
+      cb(null, targetDir);
+    } catch (error) {
+      console.error(`Failed to create directory ${targetDir}:`, error);
+      cb(error, null);
     }
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
+    const filename = file.fieldname + '-' + uniqueSuffix + extname(file.originalname);
+    console.log(`Saving file as: ${filename}`);
+    cb(null, filename);
   },
 });
 
@@ -86,14 +107,20 @@ export class CoursesController {
 
     // Add file paths to DTO
     if (files.video && files.video[0]) {
-      createCourseDto.videoUrl = `/uploads/videos/${files.video[0].filename}`;
+      const videoFile = files.video[0];
+      console.log('Video file uploaded:', videoFile.filename, 'to:', videoFile.path);
+      // Store relative path for serving static files
+      createCourseDto.videoUrl = `/uploads/videos/${videoFile.filename}`;
     } else if (body.videoUrl) {
       // Allow external URL if no file uploaded
       createCourseDto.videoUrl = body.videoUrl;
     }
 
     if (files.thumbnail && files.thumbnail[0]) {
-      createCourseDto.thumbnail = `/uploads/thumbnails/${files.thumbnail[0].filename}`;
+      const thumbnailFile = files.thumbnail[0];
+      console.log('Thumbnail file uploaded:', thumbnailFile.filename, 'to:', thumbnailFile.path);
+      // Store relative path for serving static files
+      createCourseDto.thumbnail = `/uploads/thumbnails/${thumbnailFile.filename}`;
     } else if (body.thumbnailUrl) {
       createCourseDto.thumbnail = body.thumbnailUrl;
     }
@@ -130,13 +157,17 @@ export class CoursesController {
 
     // Add file paths to DTO if new files uploaded
     if (files.video && files.video[0]) {
-      updateCourseDto.videoUrl = `/uploads/videos/${files.video[0].filename}`;
+      const videoFile = files.video[0];
+      console.log('Video file updated (PATCH):', videoFile.filename, 'to:', videoFile.path);
+      updateCourseDto.videoUrl = `/uploads/videos/${videoFile.filename}`;
     } else if (body.videoUrl) {
       updateCourseDto.videoUrl = body.videoUrl;
     }
 
     if (files.thumbnail && files.thumbnail[0]) {
-      updateCourseDto.thumbnail = `/uploads/thumbnails/${files.thumbnail[0].filename}`;
+      const thumbnailFile = files.thumbnail[0];
+      console.log('Thumbnail file updated (PATCH):', thumbnailFile.filename, 'to:', thumbnailFile.path);
+      updateCourseDto.thumbnail = `/uploads/thumbnails/${thumbnailFile.filename}`;
     } else if (body.thumbnailUrl) {
       updateCourseDto.thumbnail = body.thumbnailUrl;
     }
@@ -173,13 +204,17 @@ export class CoursesController {
 
     // Add file paths to DTO if new files uploaded
     if (files.video && files.video[0]) {
-      updateCourseDto.videoUrl = `/uploads/videos/${files.video[0].filename}`;
+      const videoFile = files.video[0];
+      console.log('Video file updated (PUT):', videoFile.filename, 'to:', videoFile.path);
+      updateCourseDto.videoUrl = `/uploads/videos/${videoFile.filename}`;
     } else if (body.videoUrl) {
       updateCourseDto.videoUrl = body.videoUrl;
     }
 
     if (files.thumbnail && files.thumbnail[0]) {
-      updateCourseDto.thumbnail = `/uploads/thumbnails/${files.thumbnail[0].filename}`;
+      const thumbnailFile = files.thumbnail[0];
+      console.log('Thumbnail file updated (PUT):', thumbnailFile.filename, 'to:', thumbnailFile.path);
+      updateCourseDto.thumbnail = `/uploads/thumbnails/${thumbnailFile.filename}`;
     } else if (body.thumbnailUrl) {
       updateCourseDto.thumbnail = body.thumbnailUrl;
     }
