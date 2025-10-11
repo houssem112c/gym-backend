@@ -121,7 +121,39 @@
           { name: 'video', maxCount: 1 },
           { name: 'thumbnail', maxCount: 1 },
         ],
-        { storage },
+        { 
+          storage,
+          limits: {
+            fileSize: 10 * 1024 * 1024, // 10MB limit for Render free tier
+            files: 2, // Max 2 files (video + thumbnail)
+          },
+          fileFilter: (req, file, cb) => {
+            console.log(`🔍 Validating file: ${file.originalname} (${file.mimetype})`);
+            
+            if (file.fieldname === 'video') {
+              // Accept video files
+              if (file.mimetype.startsWith('video/')) {
+                console.log('✅ Video file accepted');
+                cb(null, true);
+              } else {
+                console.log('❌ Invalid video file type:', file.mimetype);
+                cb(new Error('Only video files are allowed for video field'), false);
+              }
+            } else if (file.fieldname === 'thumbnail') {
+              // Accept image files
+              if (file.mimetype.startsWith('image/')) {
+                console.log('✅ Image file accepted');
+                cb(null, true);
+              } else {
+                console.log('❌ Invalid image file type:', file.mimetype);
+                cb(new Error('Only image files are allowed for thumbnail field'), false);
+              }
+            } else {
+              console.log('❌ Unknown field:', file.fieldname);
+              cb(new Error('Unknown field'), false);
+            }
+          }
+        },
       ),
     )
     async create(
