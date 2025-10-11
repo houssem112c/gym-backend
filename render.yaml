@@ -3,7 +3,7 @@ services:
     name: gym-backend
     env: node
     plan: free
-    buildCommand: npm ci && npm run build && npx prisma generate && npx prisma migrate deploy
+    buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npm run start:prod
     envVars:
       - key: DATABASE_URL
