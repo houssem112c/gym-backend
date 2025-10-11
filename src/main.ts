@@ -5,6 +5,9 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 
 async function bootstrap() {
+  console.log('🚀 Starting Gym Backend Application...');
+  console.log('📍 NODE_ENV:', process.env.NODE_ENV || 'development');
+  
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // Enable CORS for frontend, admin, and mobile web app
@@ -25,6 +28,8 @@ async function bootstrap() {
         process.env.ADMIN_URL,
       ].filter(Boolean);
 
+  console.log('🌐 CORS enabled for origins:', allowedOrigins);
+
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
@@ -36,6 +41,8 @@ async function bootstrap() {
     ? join(__dirname, '..', '..', 'uploads')
     : join('/tmp', 'uploads');
     
+  console.log('📁 Static files will be served from:', uploadsPath);
+  
   app.useStaticAssets(uploadsPath, {
     prefix: '/uploads/',
   });
@@ -50,9 +57,12 @@ async function bootstrap() {
 
   // Set global prefix
   app.setGlobalPrefix('api');
+  console.log('🔧 Global prefix set to: /api');
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}/api`);
+  console.log(`✅ Application is running on port: ${port}`);
+  console.log(`🌐 API endpoint: http://localhost:${port}/api`);
+  console.log(`📁 File uploads: ${isDevelopment ? 'Local ./uploads' : 'Render /tmp'}`);
 }
 bootstrap();
