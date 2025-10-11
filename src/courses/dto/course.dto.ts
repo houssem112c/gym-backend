@@ -20,6 +20,18 @@ export class CreateCourseDto {
   @IsString()
   @IsNotEmpty()
   instructor: string;
+
+  @IsString()
+  @IsNotEmpty()
+  categoryId: string;
+
+  @IsString()
+  @IsOptional()
+  videoUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  thumbnail?: string;
 }
 
 export class UpdateCourseDto {
@@ -44,6 +56,22 @@ export class UpdateCourseDto {
   @IsString()
   @IsOptional()
   instructor?: string;
+
+  @IsString()
+  @IsOptional()
+  categoryId?: string;
+
+  @IsString()
+  @IsOptional()
+  videoUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  thumbnail?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }
 
 export class CreateScheduleDto {

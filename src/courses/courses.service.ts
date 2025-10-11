@@ -8,14 +8,32 @@ export class CoursesService {
 
   // Courses CRUD
   async createCourse(createCourseDto: CreateCourseDto) {
+    // Validate that the category exists
+    const category = await this.prisma.category.findUnique({
+      where: { id: createCourseDto.categoryId },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID ${createCourseDto.categoryId} not found`);
+    }
+
     return this.prisma.course.create({
       data: createCourseDto,
+      include: {
+        category: true,
+        schedules: {
+          where: { isActive: true },
+          orderBy: { startTime: 'asc' },
+        },
+      },
     });
   }
 
   async findAllCourses() {
     return this.prisma.course.findMany({
+      where: { isActive: true },
       include: {
+        category: true,
         schedules: {
           where: { isActive: true },
           orderBy: { startTime: 'asc' },
@@ -29,6 +47,7 @@ export class CoursesService {
     const course = await this.prisma.course.findUnique({
       where: { id },
       include: {
+        category: true,
         schedules: {
           where: { isActive: true },
           orderBy: { startTime: 'asc' },
@@ -44,12 +63,27 @@ export class CoursesService {
   }
 
   async updateCourse(id: string, updateCourseDto: UpdateCourseDto) {
+    // Validate that the category exists if categoryId is being updated
+    if (updateCourseDto.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: updateCourseDto.categoryId },
+      });
+
+      if (!category) {
+        throw new NotFoundException(`Category with ID ${updateCourseDto.categoryId} not found`);
+      }
+    }
+
     try {
       return await this.prisma.course.update({
         where: { id },
         data: updateCourseDto,
         include: {
-          schedules: true,
+          category: true,
+          schedules: {
+            where: { isActive: true },
+            orderBy: { startTime: 'asc' },
+          },
         },
       });
     } catch (error) {
@@ -80,7 +114,11 @@ export class CoursesService {
         },
       },
       include: {
-        course: true,
+        course: {
+          include: {
+            category: true,
+          },
+        },
       },
     });
   }
@@ -89,7 +127,11 @@ export class CoursesService {
     return this.prisma.courseSchedule.findMany({
       where: courseId ? { courseId, isActive: true } : { isActive: true },
       include: {
-        course: true,
+        course: {
+          include: {
+            category: true,
+          },
+        },
       },
       orderBy: { startTime: 'asc' },
     });
@@ -99,7 +141,11 @@ export class CoursesService {
     const schedule = await this.prisma.courseSchedule.findUnique({
       where: { id },
       include: {
-        course: true,
+        course: {
+          include: {
+            category: true,
+          },
+        },
       },
     });
 
@@ -116,7 +162,11 @@ export class CoursesService {
         where: { id },
         data: updateScheduleDto,
         include: {
-          course: true,
+          course: {
+            include: {
+              category: true,
+            },
+          },
         },
       });
     } catch (error) {
@@ -155,7 +205,11 @@ export class CoursesService {
         ],
       },
       include: {
-        course: true,
+        course: {
+          include: {
+            category: true,
+          },
+        },
       },
       orderBy: { startTime: 'asc' },
     });

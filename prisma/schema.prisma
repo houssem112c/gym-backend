@@ -32,6 +32,21 @@ enum Role {
   USER
 }
 
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  color       String?  // Hex color for UI
+  icon        String?  // Icon name for UI
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  courses     Course[]
+
+  @@map("categories")
+}
+
 model Course {
   id          String            @id @default(uuid())
   title       String
@@ -39,6 +54,11 @@ model Course {
   duration    Int // duration in minutes
   capacity    Int // max participants
   instructor  String
+  categoryId  String
+  category    Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  videoUrl    String? // Main course video URL
+  thumbnail   String? // Course thumbnail
+  isActive    Boolean           @default(true)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   schedules   CourseSchedule[]
