@@ -27,9 +27,10 @@ async function bootstrap() {
   });
 
   // Serve static files (uploaded videos and thumbnails)
+  // Note: On free tier, files are stored in ephemeral storage and may be lost on restart
   const uploadsPath = isDevelopment 
     ? join(__dirname, '..', '..', 'uploads')
-    : join(process.cwd(), 'uploads');
+    : join('/tmp', 'uploads');
     
   app.useStaticAssets(uploadsPath, {
     prefix: '/uploads/',

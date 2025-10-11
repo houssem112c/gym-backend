@@ -10,8 +10,8 @@ This guide will help you deploy your NestJS backend to Render with PostgreSQL da
 ## Step 1: Prepare Your Repository
 
 Make sure your backend code is pushed to a Git repository with the following files:
-- `render.yaml` ✅ (Created)
-- `Dockerfile` ✅ (Created) 
+- `render.yaml` ✅ (Created - simplified build process)
+- `.dockerignore` ✅ (Created) 
 - Updated `package.json` with production scripts ✅
 - `prisma/schema.prisma` ✅ (Updated)
 - `prisma/seed.ts` ✅ (Ready)
@@ -108,19 +108,26 @@ Update your frontend applications to use the new backend URL:
 ### Update frontend API configuration:
 Replace `http://localhost:3001/api` with `https://your-backend-url.onrender.com/api`
 
-## Step 6: File Uploads Configuration
+## Step 6: File Uploads Configuration (Free Tier Limitation)
 
-Your backend is configured with persistent disk storage for file uploads:
-- Mount path: `/opt/render/project/src/uploads`
-- Size: 1GB (Free tier)
-- Files uploaded will persist across deployments
+**Important**: On Render's free tier, file uploads use ephemeral storage:
+- Upload path: `/tmp/uploads` (temporary storage)
+- **Files will be lost when the service restarts or sleeps**
+- For production use, consider:
+  - Upgrading to a paid plan with persistent disks
+  - Using cloud storage (AWS S3, Cloudinary, etc.)
+  - Storing only URLs in database for external media
 
 ## Common Issues & Solutions
 
 ### 1. Build Failures
-- Check build logs for specific errors
-- Ensure all dependencies are in `package.json`
-- Verify Node.js version compatibility
+- **Exit Status 127**: "nest: not found" - Fixed by adding `@nestjs/cli` to main dependencies
+- **NestJS CLI**: Use `npx nest build` instead of `nest build` in scripts
+- **Build Dependencies**: Moved `@nestjs/cli` and `typescript` from devDependencies to dependencies
+- **Prisma Issues**: Make sure `@prisma/client` and `prisma` are in dependencies
+- **Build Command**: `npm install && npx prisma generate && npm run build`
+- **Node.js Version**: Render uses Node.js 22.16.0 (latest LTS)
+- Check build logs in Render dashboard for specific errors
 
 ### 2. Database Connection Issues
 - Verify DATABASE_URL is correct
@@ -132,9 +139,10 @@ Your backend is configured with persistent disk storage for file uploads:
 - Update environment variables: `FRONTEND_URL`, `ADMIN_URL`
 
 ### 4. File Upload Issues
-- Ensure persistent disk is mounted correctly
-- Check file permissions
-- Verify upload directory exists
+- **Free Tier**: Files stored in ephemeral storage (`/tmp/uploads`)
+- **Files are lost** when service restarts or sleeps
+- For persistent storage, consider upgrading to paid plan or using external storage
+- Check file permissions and verify upload directory exists
 
 ## Deployment Commands
 
@@ -184,9 +192,9 @@ npm run db:reset
 ## Cost Information
 
 **Free Tier Limits:**
-- Web Service: 750 hours/month
+- Web Service: 750 hours/month (sleeps after 15 min of inactivity)
 - PostgreSQL: 1GB storage, 1 month data retention
-- Disk Storage: 1GB for file uploads
+- File Storage: Ephemeral only (files lost on restart)
 - Bandwidth: 100GB/month
 
 **Upgrade Options:**
