@@ -8,17 +8,30 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // Enable CORS for frontend, admin, and mobile web app
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const allowedOrigins = isDevelopment 
+    ? [
+        'http://localhost:3000', 
+        'http://localhost:3002', 
+        /^http:\/\/localhost:\d+$/  // Allow any localhost port for Flutter web dev server
+      ]
+    : [
+        // Add your production domains here
+        process.env.FRONTEND_URL,
+        process.env.ADMIN_URL,
+      ].filter(Boolean);
+
   app.enableCors({
-    origin: [
-      'http://localhost:3000', 
-      'http://localhost:3002', 
-      /^http:\/\/localhost:\d+$/  // Allow any localhost port for Flutter web dev server
-    ],
+    origin: allowedOrigins,
     credentials: true,
   });
 
   // Serve static files (uploaded videos and thumbnails)
-  app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), {
+  const uploadsPath = isDevelopment 
+    ? join(__dirname, '..', '..', 'uploads')
+    : join(process.cwd(), 'uploads');
+    
+  app.useStaticAssets(uploadsPath, {
     prefix: '/uploads/',
   });
 
