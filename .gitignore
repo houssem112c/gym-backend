@@ -42,7 +42,3 @@ uploads/videos/*
 uploads/thumbnails/*
 !uploads/videos/.gitkeep
 !uploads/thumbnails/.gitkeep
-
-# Prisma
-prisma/migrations/*
-!prisma/migrations/.gitkeep
