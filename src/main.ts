@@ -23,7 +23,9 @@ async function bootstrap() {
         'http://localhost:3000',
         'http://localhost:3002', 
         /^http:\/\/localhost:\d+$/,
-        // Add your production domains when you deploy frontend/admin
+        // Allow all Vercel domains for admin panel
+        /^https:\/\/.*\.vercel\.app$/,
+        // Allow custom domains if set
         process.env.FRONTEND_URL,
         process.env.ADMIN_URL,
       ].filter(Boolean);
@@ -41,10 +43,13 @@ async function bootstrap() {
   console.log('📂 Max file upload size set to:', maxFileSize);
   
   app.use((req, res, next) => {
-    // Set timeout for uploads
-    res.setTimeout(30000, () => { // 30 seconds
-      console.log('⏰ Request timeout reached');
-      res.status(408).send('Request Timeout');
+    // Set longer timeout for video uploads, shorter for others
+    const isVideoUpload = req.url.includes('/courses') && req.method === 'POST';
+    const timeout = isVideoUpload ? 60000 : 30000; // 60s for video uploads, 30s for others
+    
+    res.setTimeout(timeout, () => {
+      console.log(`⏰ Request timeout reached (${timeout/1000}s) for ${req.method} ${req.url}`);
+      res.status(408).send('Request Timeout - Upload too large or slow');
     });
     next();
   });
