@@ -33,7 +33,7 @@ async function bootstrap() {
   console.log('🌐 CORS enabled for origins:', allowedOrigins);
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: "*",
     credentials: true,
   });
 
