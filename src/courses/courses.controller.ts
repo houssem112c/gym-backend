@@ -196,13 +196,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
         if (files?.video && files.video[0]) {
           const videoFile = files.video[0];
           const videoSizeMB = (videoFile.size / 1024 / 1024).toFixed(2);
-          
-          console.log('✅ Video file uploaded successfully:');
-          console.log('  - Filename:', videoFile.filename);
-          console.log('  - Path:', videoFile.path);
-          console.log('  - Size:', videoFile.size, 'bytes', `(${videoSizeMB} MB)`);
-          console.log('  - MIME Type:', videoFile.mimetype);
-          
+ 
           // Verify file was actually saved to disk
           const fs = require('fs');
           if (fs.existsSync(videoFile.path)) {
