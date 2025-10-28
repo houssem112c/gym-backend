@@ -14,7 +14,6 @@ import {
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import { Express } from 'express';
 import { VideosService } from './videos.service';
 import {
     CreateVideoCategoryDto,

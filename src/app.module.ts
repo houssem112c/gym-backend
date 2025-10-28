@@ -8,6 +8,7 @@ import { VideosModule } from './videos/videos.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { LocationsModule } from './locations/locations.module';
 import { BmiModule } from './bmi/bmi.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { BmiModule } from './bmi/bmi.module';
       isGlobal: true,
     }),
     PrismaModule,
+    HealthModule,
     AuthModule,
     CategoriesModule,
     CoursesModule,
