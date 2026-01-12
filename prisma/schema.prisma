@@ -20,6 +20,16 @@ model User {
   role         Role        @default(USER)
   isActive     Boolean     @default(true)
   refreshToken String?     // Store refresh token for JWT
+  
+  // Profile fields
+  avatar       String?     // Profile image URL from Supabase
+  bio          String?     // User biography
+  phone        String?     // Phone number
+  dateOfBirth  DateTime?   // Date of birth
+  address      String?     // Physical address
+  city         String?     // City
+  country      String?     // Country
+  
   contacts     Contact[]   // User's contact messages
   bmiRecords   BmiRecord[] // User's BMI records
   createdAt    DateTime    @default(now())
@@ -39,11 +49,13 @@ model Category {
   description String?
   color       String?  // Hex color for UI
   icon        String?  // Icon name for UI
+  muscleGroup String?  // Muscle group target (chest, back, legs, etc.)
   order       Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   courses     Course[]
+  stories     Story[]
 
   @@map("categories")
 }
@@ -212,4 +224,26 @@ enum BmiStatus {
   OK
   CAUTION
   NOT_OK
+}
+
+model Story {
+  id          String   @id @default(uuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  mediaUrl    String   // Image or video URL
+  mediaType   MediaType // IMAGE or VIDEO
+  caption     String?
+  duration    Int      @default(5) // Display duration in seconds (for images)
+  expiresAt   DateTime? // Optional: auto-expire after X time
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("stories")
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
 }

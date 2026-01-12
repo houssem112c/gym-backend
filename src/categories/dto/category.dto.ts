@@ -17,6 +17,10 @@ export class CreateCategoryDto {
   icon?: string;
 
   @IsOptional()
+  @IsString()
+  muscleGroup?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   order?: number = 0;
@@ -38,6 +42,10 @@ export class UpdateCategoryDto {
   @IsOptional()
   @IsString()
   icon?: string;
+
+  @IsOptional()
+  @IsString()
+  muscleGroup?: string;
 
   @IsOptional()
   @IsInt()

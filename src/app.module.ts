@@ -9,6 +9,8 @@ import { ContactsModule } from './contacts/contacts.module';
 import { LocationsModule } from './locations/locations.module';
 import { BmiModule } from './bmi/bmi.module';
 import { HealthModule } from './health/health.module';
+import { StoriesModule } from './stories/stories.module';
+import { SupabaseModule } from './supabase/supabase.module';
 
 @Module({
   imports: [
@@ -16,6 +18,7 @@ import { HealthModule } from './health/health.module';
       isGlobal: true,
     }),
     PrismaModule,
+    SupabaseModule,
     HealthModule,
     AuthModule,
     CategoriesModule,
@@ -24,6 +27,7 @@ import { HealthModule } from './health/health.module';
     ContactsModule,
     LocationsModule,
     BmiModule,
+    StoriesModule,
   ],
 })
 export class AppModule {}

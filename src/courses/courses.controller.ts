@@ -13,71 +13,17 @@
   Put,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { existsSync, mkdirSync } from 'fs';
 import { CoursesService } from './courses.service';
+import { SupabaseService } from '../supabase/supabase.service';
 import { CreateCourseDto, UpdateCourseDto, CreateScheduleDto, UpdateScheduleDto } from './dto/course.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-  // Multer configuration for file uploads
-  // Note: On Render free tier, use /tmp for temporary storage (files will be lost on restart)
-  const storage = diskStorage({
-    destination: (req, file, cb) => {
-      console.log(`📁 Processing file upload for field: ${file.fieldname}`);
-      
-      // Use /tmp for production (Render) or ./uploads for local development
-      const baseDir = process.env.NODE_ENV === 'production' ? '/tmp' : './uploads';
-      console.log(`📂 Base directory: ${baseDir} (NODE_ENV: ${process.env.NODE_ENV})`);
-      
-      let targetDir;
-      if (file.fieldname === 'video') {
-        targetDir = `${baseDir}/videos`;
-      } else if (file.fieldname === 'thumbnail') {
-        targetDir = `${baseDir}/thumbnails`;
-      } else {
-        console.error(`❌ Invalid field name: ${file.fieldname}`);
-        return cb(new Error(`Invalid field name: ${file.fieldname}`), null);
-      }
-      
-      console.log(`🎯 Target directory: ${targetDir}`);
-      
-      // Create directory if it doesn't exist
-      try {
-        if (!existsSync(targetDir)) {
-          console.log(`📁 Directory doesn't exist, creating: ${targetDir}`);
-          mkdirSync(targetDir, { recursive: true });
-          console.log(`✅ Successfully created directory: ${targetDir}`);
-        } else {
-          console.log(`✅ Directory already exists: ${targetDir}`);
-        }
-        
-        console.log(`✅ File destination set to: ${targetDir}`);
-        cb(null, targetDir);
-      } catch (error) {
-        console.error(`❌ Failed to create directory ${targetDir}:`, error.message);
-        console.error(`❌ Full error:`, error);
-        cb(error, null);
-      }
-    },
-    filename: (req, file, cb) => {
-      try {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const filename = file.fieldname + '-' + uniqueSuffix + extname(file.originalname);
-        console.log(`💾 Generating filename for ${file.fieldname}: ${filename}`);
-        console.log(`📄 Original filename: ${file.originalname}`);
-        console.log(`📏 File size: ${file.size || 'unknown'} bytes`);
-        cb(null, filename);
-      } catch (error) {
-        console.error(`❌ Error generating filename:`, error);
-        cb(error, null);
-      }
-    },
-  });
-
   @Controller('courses')
   export class CoursesController {
-    constructor(private readonly coursesService: CoursesService) {}
+    constructor(
+      private readonly coursesService: CoursesService,
+      private readonly supabaseService: SupabaseService,
+    ) {}
 
     // Health check endpoint
     @Get('health')
@@ -93,11 +39,226 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
       return status;
     }
 
+    // Debug endpoint to see raw course data
+    @Get('debug')
+    async debugCourses() {
+      const courses = await this.coursesService.findAllCourses();
+      console.log('🐛 Debug courses endpoint called');
+      console.log('🐛 Total courses:', courses.length);
+      
+      return {
+        total: courses.length,
+        courses: courses.map(course => ({
+          id: course.id,
+          title: course.title,
+          videoUrl: course.videoUrl,
+          thumbnail: course.thumbnail,
+          hasVideo: !!course.videoUrl,
+          hasThumbnail: !!course.thumbnail,
+          videoUrlLength: course.videoUrl?.length || 0,
+          thumbnailLength: course.thumbnail?.length || 0,
+        }))
+      };
+    }
+
+    // Quick fix: Convert local paths to full URLs
+    @Post('fix-local-urls')
+    async fixLocalUrls() {
+      console.log('🔧 Converting local file paths to full URLs...');
+      
+      try {
+        const courses = await this.coursesService.findAllCourses();
+        const coursesToFix = courses.filter(course => 
+          (course.videoUrl && course.videoUrl.startsWith('/uploads/')) ||
+          (course.thumbnail && course.thumbnail.startsWith('/uploads/'))
+        );
+
+        console.log(`📋 Found ${coursesToFix.length} courses to fix`);
+        const results = [];
+
+        for (const course of coursesToFix) {
+          console.log(`🔧 Fixing course: ${course.title}`);
+          
+          const updates: any = {};
+          
+          // Convert video path to full URL
+          if (course.videoUrl && course.videoUrl.startsWith('/uploads/')) {
+            updates.videoUrl = `https://gym-backend-r62h.onrender.com${course.videoUrl}`;
+            console.log(`📹 Fixed video URL: ${updates.videoUrl}`);
+          }
+          
+          // Convert thumbnail path to full URL  
+          if (course.thumbnail && course.thumbnail.startsWith('/uploads/')) {
+            updates.thumbnail = `https://gym-backend-r62h.onrender.com${course.thumbnail}`;
+            console.log(`📸 Fixed thumbnail URL: ${updates.thumbnail}`);
+          }
+          
+          if (Object.keys(updates).length > 0) {
+            await this.coursesService.updateCourse(course.id, updates);
+            results.push({
+              id: course.id,
+              title: course.title,
+              updates: updates
+            });
+          }
+        }
+
+        return {
+          success: true,
+          message: 'Fixed local URLs to full URLs',
+          fixedCourses: results.length,
+          results: results
+        };
+      } catch (error) {
+        console.error('❌ URL fix failed:', error);
+        return {
+          success: false,
+          message: 'URL fix failed',
+          error: error.message
+        };
+      }
+    }
+
+    // Migration endpoint to move local files to Supabase
+    @Post('migrate-to-supabase')
+    async migrateCourses() {
+      console.log('🚀 Starting course migration to Supabase...');
+      
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        
+        // First, try to create the bucket if it doesn't exist
+        console.log('🪣 Ensuring Supabase bucket exists...');
+        try {
+          // Note: This requires admin privileges in Supabase
+          console.log('⚠️  Please ensure the "gym-courses" bucket exists in Supabase Storage');
+        } catch (error) {
+          console.log('ℹ️  Bucket creation requires manual setup in Supabase dashboard');
+        }
+        
+        // Find all courses with local file paths
+        const courses = await this.coursesService.findAllCourses();
+        const coursesToMigrate = courses.filter(course => 
+          (course.videoUrl && course.videoUrl.startsWith('/uploads/')) ||
+          (course.thumbnail && course.thumbnail.startsWith('/uploads/'))
+        );
+
+        console.log(`📋 Found ${coursesToMigrate.length} courses to migrate`);
+
+        const results = [];
+
+        for (const course of coursesToMigrate) {
+          console.log(`\n🔄 Migrating course: ${course.title} (${course.id})`);
+          
+          const updates: any = {};
+          
+          // Migrate video if it's a local path
+          if (course.videoUrl && course.videoUrl.startsWith('/uploads/')) {
+            const videoPath = path.join(process.cwd(), course.videoUrl);
+            const videoFileName = path.basename(course.videoUrl);
+            
+            try {
+              if (fs.existsSync(videoPath)) {
+                console.log(`📹 Migrating video: ${videoFileName}`);
+                const videoBuffer = fs.readFileSync(videoPath);
+                const videoUrl = await this.supabaseService.uploadFile(
+                  videoBuffer,
+                  videoFileName,
+                  'gym-courses',
+                  'videos'
+                );
+                updates.videoUrl = videoUrl;
+                console.log(`✅ Video uploaded: ${videoUrl}`);
+              } else {
+                console.log(`❌ Video file not found: ${videoPath}`);
+              }
+            } catch (error) {
+              console.error(`❌ Failed to upload video: ${error.message}`);
+            }
+          }
+          
+          // Migrate thumbnail if it's a local path
+          if (course.thumbnail && course.thumbnail.startsWith('/uploads/')) {
+            const thumbnailPath = path.join(process.cwd(), course.thumbnail);
+            const thumbnailFileName = path.basename(course.thumbnail);
+            
+            try {
+              if (fs.existsSync(thumbnailPath)) {
+                console.log(`📸 Migrating thumbnail: ${thumbnailFileName}`);
+                const thumbnailBuffer = fs.readFileSync(thumbnailPath);
+                const thumbnailUrl = await this.supabaseService.uploadFile(
+                  thumbnailBuffer,
+                  thumbnailFileName,
+                  'gym-courses',
+                  'thumbnails'
+                );
+                updates.thumbnail = thumbnailUrl;
+                console.log(`✅ Thumbnail uploaded: ${thumbnailUrl}`);
+              } else {
+                console.log(`❌ Thumbnail file not found: ${thumbnailPath}`);
+              }
+            } catch (error) {
+              console.error(`❌ Failed to upload thumbnail: ${error.message}`);
+            }
+          }
+          
+          // Update the course if we have changes
+          if (Object.keys(updates).length > 0) {
+            const updatedCourse = await this.coursesService.updateCourse(course.id, updates);
+            console.log(`✅ Updated course ${course.title} in database`);
+            
+            results.push({
+              id: course.id,
+              title: course.title,
+              success: true,
+              updates: updates
+            });
+          } else {
+            console.log(`⚠️  No files to migrate for course ${course.title}`);
+            results.push({
+              id: course.id,
+              title: course.title,
+              success: false,
+              reason: 'No local files found or upload failed'
+            });
+          }
+        }
+
+        console.log('\n🎉 Migration completed!');
+        return {
+          success: true,
+          message: 'Migration completed successfully',
+          migratedCourses: results.length,
+          results: results,
+          note: 'If uploads failed, ensure "gym-courses" bucket exists in Supabase Storage'
+        };
+      } catch (error) {
+        console.error('❌ Migration failed:', error);
+        return {
+          success: false,
+          message: 'Migration failed',
+          error: error.message,
+          note: 'Please ensure "gym-courses" bucket exists in Supabase Storage dashboard'
+        };
+      }
+    }
+
     // Public endpoints
     @Get()
-    findAll() {
+    async findAll() {
       console.log('📋 Fetching all courses');
-      return this.coursesService.findAllCourses();
+      const courses = await this.coursesService.findAllCourses();
+      console.log('📋 Courses found:', courses.length);
+      if (courses.length > 0) {
+        console.log('📋 Sample course data:', JSON.stringify({
+          id: courses[0].id,
+          title: courses[0].title,
+          videoUrl: courses[0].videoUrl,
+          thumbnail: courses[0].thumbnail,
+        }, null, 2));
+      }
+      return courses;
     }
 
     @Get('calendar')
@@ -122,9 +283,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
           { name: 'thumbnail', maxCount: 1 },
         ],
         { 
-          storage,
           limits: {
-            fileSize: 5 * 1024 * 1024, // 5MB limit for Render free tier (reduced from 10MB)
+            fileSize: 100 * 1024 * 1024, // 100MB limit for video uploads
             files: 2, // Max 2 files (video + thumbnail)
           },
           fileFilter: (req, file, cb) => {
@@ -192,43 +352,38 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
         console.log('Base DTO created:', JSON.stringify(createCourseDto, null, 2));
 
-        // Add file paths to DTO
+        // Upload files to Supabase and add URLs to DTO
         if (files?.video && files.video[0]) {
           const videoFile = files.video[0];
           const videoSizeMB = (videoFile.size / 1024 / 1024).toFixed(2);
- 
-          // Verify file was actually saved to disk
-          const fs = require('fs');
-          if (fs.existsSync(videoFile.path)) {
-            console.log('✅ Video file confirmed on disk');
-          } else {
-            console.error('❌ Video file not found on disk:', videoFile.path);
-            throw new Error('Video file upload failed - file not saved');
-          }
+          console.log(`📹 Uploading video to Supabase (${videoSizeMB}MB)...`);
           
-          // Store relative path for serving static files
-          createCourseDto.videoUrl = `/uploads/videos/${videoFile.filename}`;
+          createCourseDto.videoUrl = await this.supabaseService.uploadFile(
+            videoFile.buffer,
+            videoFile.originalname,
+            'gym-courses',
+            'videos'
+          );
+          console.log('✅ Video uploaded:', createCourseDto.videoUrl);
         } else if (body.videoUrl) {
           console.log('📎 Using external video URL:', body.videoUrl);
-          // Allow external URL if no file uploaded
           createCourseDto.videoUrl = body.videoUrl;
-        } else {
-          console.log('❌ No video file or URL provided');
         }
 
         if (files?.thumbnail && files.thumbnail[0]) {
           const thumbnailFile = files.thumbnail[0];
-          console.log('✅ Thumbnail file uploaded successfully:');
-          console.log('  - Filename:', thumbnailFile.filename);
-          console.log('  - Path:', thumbnailFile.path);
-          console.log('  - Size:', thumbnailFile.size, 'bytes');
-          // Store relative path for serving static files
-          createCourseDto.thumbnail = `/uploads/thumbnails/${thumbnailFile.filename}`;
+          console.log('📸 Uploading thumbnail to Supabase...');
+          
+          createCourseDto.thumbnail = await this.supabaseService.uploadFile(
+            thumbnailFile.buffer,
+            thumbnailFile.originalname,
+            'gym-courses',
+            'thumbnails'
+          );
+          console.log('✅ Thumbnail uploaded:', createCourseDto.thumbnail);
         } else if (body.thumbnailUrl) {
           console.log('📎 Using external thumbnail URL:', body.thumbnailUrl);
           createCourseDto.thumbnail = body.thumbnailUrl;
-        } else {
-          console.log('❌ No thumbnail file or URL provided');
         }
 
         console.log('Final DTO before service call:', JSON.stringify(createCourseDto, null, 2));
@@ -255,10 +410,15 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
           { name: 'video', maxCount: 1 },
           { name: 'thumbnail', maxCount: 1 },
         ],
-        { storage },
+        { 
+          limits: {
+            fileSize: 100 * 1024 * 1024, // 100MB limit for video uploads
+            files: 2,
+          },
+        },
       ),
     )
-    update(
+    async update(
       @Param('id') id: string, 
       @Body() body: any,
       @UploadedFiles()
@@ -274,19 +434,31 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
       if (body.instructor) updateCourseDto.instructor = body.instructor;
       if (body.categoryId) updateCourseDto.categoryId = body.categoryId;
 
-      // Add file paths to DTO if new files uploaded
+      // Upload files to Supabase if new files provided
       if (files.video && files.video[0]) {
         const videoFile = files.video[0];
-        console.log('Video file updated (PATCH):', videoFile.filename, 'to:', videoFile.path);
-        updateCourseDto.videoUrl = `/uploads/videos/${videoFile.filename}`;
+        console.log('Video file updated (PATCH):', videoFile.originalname, 'size:', videoFile.size);
+        updateCourseDto.videoUrl = await this.supabaseService.uploadFile(
+          videoFile.buffer,
+          videoFile.originalname,
+          'gym-courses',
+          'videos'
+        );
+        console.log('Video uploaded to Supabase (PATCH):', updateCourseDto.videoUrl);
       } else if (body.videoUrl) {
         updateCourseDto.videoUrl = body.videoUrl;
       }
 
       if (files.thumbnail && files.thumbnail[0]) {
         const thumbnailFile = files.thumbnail[0];
-        console.log('Thumbnail file updated (PATCH):', thumbnailFile.filename, 'to:', thumbnailFile.path);
-        updateCourseDto.thumbnail = `/uploads/thumbnails/${thumbnailFile.filename}`;
+        console.log('Thumbnail file updated (PATCH):', thumbnailFile.originalname, 'size:', thumbnailFile.size);
+        updateCourseDto.thumbnail = await this.supabaseService.uploadFile(
+          thumbnailFile.buffer,
+          thumbnailFile.originalname,
+          'gym-courses',
+          'thumbnails'
+        );
+        console.log('Thumbnail uploaded to Supabase (PATCH):', updateCourseDto.thumbnail);
       } else if (body.thumbnailUrl) {
         updateCourseDto.thumbnail = body.thumbnailUrl;
       }
@@ -302,10 +474,15 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
           { name: 'video', maxCount: 1 },
           { name: 'thumbnail', maxCount: 1 },
         ],
-        { storage },
+        { 
+          limits: {
+            fileSize: 100 * 1024 * 1024, // 100MB limit for video uploads
+            files: 2,
+          },
+        },
       ),
     )
-    updatePut(
+    async updatePut(
       @Param('id') id: string, 
       @Body() body: any,
       @UploadedFiles()
@@ -321,19 +498,31 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
       if (body.instructor) updateCourseDto.instructor = body.instructor;
       if (body.categoryId) updateCourseDto.categoryId = body.categoryId;
 
-      // Add file paths to DTO if new files uploaded
+      // Upload files to Supabase if new files provided
       if (files.video && files.video[0]) {
         const videoFile = files.video[0];
-        console.log('Video file updated (PUT):', videoFile.filename, 'to:', videoFile.path);
-        updateCourseDto.videoUrl = `/uploads/videos/${videoFile.filename}`;
+        console.log('Video file updated (PUT):', videoFile.originalname, 'size:', videoFile.size);
+        updateCourseDto.videoUrl = await this.supabaseService.uploadFile(
+          videoFile.buffer,
+          videoFile.originalname,
+          'gym-courses',
+          'videos'
+        );
+        console.log('Video uploaded to Supabase (PUT):', updateCourseDto.videoUrl);
       } else if (body.videoUrl) {
         updateCourseDto.videoUrl = body.videoUrl;
       }
 
       if (files.thumbnail && files.thumbnail[0]) {
         const thumbnailFile = files.thumbnail[0];
-        console.log('Thumbnail file updated (PUT):', thumbnailFile.filename, 'to:', thumbnailFile.path);
-        updateCourseDto.thumbnail = `/uploads/thumbnails/${thumbnailFile.filename}`;
+        console.log('Thumbnail file updated (PUT):', thumbnailFile.originalname, 'size:', thumbnailFile.size);
+        updateCourseDto.thumbnail = await this.supabaseService.uploadFile(
+          thumbnailFile.buffer,
+          thumbnailFile.originalname,
+          'gym-courses',
+          'thumbnails'
+        );
+        console.log('Thumbnail uploaded to Supabase (PUT):', updateCourseDto.thumbnail);
       } else if (body.thumbnailUrl) {
         updateCourseDto.thumbnail = body.thumbnailUrl;
       }

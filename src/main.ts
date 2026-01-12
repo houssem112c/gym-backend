@@ -39,13 +39,13 @@ async function bootstrap() {
 
   // Configure payload limits for file uploads
   // Note: Render free tier has strict memory limits
-  const maxFileSize = '10mb'; // Reduced for Render compatibility
+  const maxFileSize = '100mb'; // Increased for video uploads
   console.log('📂 Max file upload size set to:', maxFileSize);
   
   app.use((req, res, next) => {
     // Set longer timeout for video uploads, shorter for others
     const isVideoUpload = req.url.includes('/courses') && req.method === 'POST';
-    const timeout = isVideoUpload ? 60000 : 30000; // 60s for video uploads, 30s for others
+    const timeout = isVideoUpload ? 300000 : 30000; // 5min for video uploads, 30s for others
     
     res.setTimeout(timeout, () => {
       console.log(`⏰ Request timeout reached (${timeout/1000}s) for ${req.method} ${req.url}`);
