@@ -30,10 +30,15 @@ model User {
   city         String?     // City
   country      String?     // Country
   
-  contacts     Contact[]   // User's contact messages
-  bmiRecords   BmiRecord[] // User's BMI records
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  contacts       Contact[]   // User's contact messages
+  bmiRecords     BmiRecord[] // User's BMI records
+  progressPhotos UserProgressPhoto[]
+  measurements   UserMeasurement[]
+  prs            UserPR[]
+  workoutSessions WorkoutSession[]
+  
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@map("users")
 }
@@ -107,36 +112,6 @@ model CourseSchedule {
   updatedAt    DateTime      @updatedAt
 
   @@map("course_schedules")
-}
-
-model VideoCategory {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  slug        String   @unique
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  videos      Video[]
-
-  @@map("video_categories")
-}
-
-model Video {
-  id          String        @id @default(uuid())
-  title       String
-  description String?
-  url         String // YouTube URL or video file URL
-  thumbnail   String?
-  duration    Int? // duration in seconds
-  categoryId  String
-  category    VideoCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  order       Int           @default(0)
-  isPublished Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  @@map("videos")
 }
 
 model Contact {
@@ -243,7 +218,154 @@ model Story {
   @@map("stories")
 }
 
+model Exercise {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  muscleGroup String?  // e.g., "Chest", "Back"
+  equipment   String?  // e.g., "Dumbbell", "Barbell"
+  videoUrl    String?  // Demonstration video
+  imageUrl    String?  // Illustration image
+  difficulty  Difficulty @default(BEGINNER)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workoutExercises WorkoutPlanExercise[]
+  userPRs          UserPR[]
+  setLogs          SetLog[]
+
+  @@map("exercises")
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model WorkoutPlan {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  goal        String?  // e.g., "Strength", "Weight Loss"
+  durationWeeks Int?   // Expected duration
+  difficulty  Difficulty @default(BEGINNER)
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exercises   WorkoutPlanExercise[]
+  workoutSessions WorkoutSession[]
+
+  @@map("workout_plans")
+}
+
+model WorkoutPlanExercise {
+  id            String      @id @default(uuid())
+  workoutPlanId String
+  workoutPlan   WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exerciseId    String
+  exercise      Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  
+  order         Int         @default(0)
+  sets          Int?
+  reps          String?     // e.g., "8-12" or "To Failure"
+  notes         String?
+
+  @@map("workout_plan_exercises")
+}
+
+model UserProgressPhoto {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imageUrl    String   // URL from Supabase
+  type        PhotoType @default(FRONT)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@map("user_progress_photos")
+}
+
+enum PhotoType {
+  FRONT
+  BACK
+  SIDE
+}
+
+model UserMeasurement {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weight      Float?
+  bodyFat     Float?
+  waist       Float?
+  chest       Float?
+  arms        Float?
+  legs        Float?
+  createdAt   DateTime @default(now())
+
+  @@map("user_measurements")
+}
+
+model UserPR {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  weight      Float
+  reps        Int
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@map("user_prs")
+}
+
 enum MediaType {
   IMAGE
   VIDEO
+}
+
+model WorkoutSession {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutPlanId String?
+  workoutPlan   WorkoutPlan? @relation(fields: [workoutPlanId], references: [id], onDelete: SetNull)
+  
+  startTime     DateTime    @default(now())
+  endTime       DateTime?
+  status        SessionStatus @default(IN_PROGRESS)
+  totalVolume   Float?      // Sum of weight * reps
+  notes         String?
+
+  setLogs       SetLog[]
+
+  @@map("workout_sessions")
+}
+
+model SetLog {
+  id               String         @id @default(uuid())
+  workoutSessionId String
+  workoutSession   WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exerciseId       String
+  exercise         Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  
+  setNumber        Int
+  weight           Float
+  reps             Int
+  isPersonalRecord Boolean        @default(false)
+  
+  createdAt        DateTime       @default(now())
+
+  @@map("set_logs")
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
