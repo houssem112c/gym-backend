@@ -12,6 +12,7 @@
     "start:dev": "npx nest start --watch",
     "start:debug": "npx nest start --debug --watch",
     "start:prod": "node dist/src/main.js",
+    "start:azure": "node dist/src/main.js",
     "migrate:deploy": "npx prisma migrate deploy",
     "migrate:dev": "npx prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
