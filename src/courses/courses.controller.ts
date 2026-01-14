@@ -83,13 +83,13 @@ export class CoursesController {
 
         // Convert video path to full URL
         if (course.videoUrl && course.videoUrl.startsWith('/uploads/')) {
-          updates.videoUrl = `http://localhost:3001${course.videoUrl}`;
+          updates.videoUrl = `urbangym-amgyh4ghftepesg9.canadacentral-01.azurewebsites.net${course.videoUrl}`;
           console.log(`📹 Fixed video URL: ${updates.videoUrl}`);
         }
 
         // Convert thumbnail path to full URL  
         if (course.thumbnail && course.thumbnail.startsWith('/uploads/')) {
-          updates.thumbnail = `http://localhost:3001${course.thumbnail}`;
+          updates.thumbnail = `urbangym-amgyh4ghftepesg9.canadacentral-01.azurewebsites.net${course.thumbnail}`;
           console.log(`📸 Fixed thumbnail URL: ${updates.thumbnail}`);
         }
 

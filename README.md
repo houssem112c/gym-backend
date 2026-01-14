@@ -82,7 +82,7 @@ npm run build
 npm run start:prod
 ```
 
-The API will be available at `http://localhost:3001/api`
+The API will be available at `urbangym-amgyh4ghftepesg9.canadacentral-01.azurewebsites.net/api`
 
 ## API Documentation
 
