@@ -31,14 +31,8 @@ jobs:
 
       - name: Prepare artifact for upload
         run: |
-          # Rename .prisma to dot-prisma to avoid GitHub Actions artifact exclusion of hidden files
-          if [ -d "node_modules/.prisma" ]; then
-            mv node_modules/.prisma node_modules/dot-prisma
-            echo "Renamed node_modules/.prisma to node_modules/dot-prisma"
-          else
-            echo "WARNING: node_modules/.prisma not found!"
-            ls -la node_modules/ || true
-          fi
+          echo "Preparing deployment artifact (including node_modules/.prisma if present)"
+          ls -la node_modules/ || true
 
       - name: Build deployment ZIP
         run: |
@@ -64,14 +58,14 @@ jobs:
         with:
           name: node-app
       
-      - name: Restore hidden directories
+      - name: Move downloaded artifact into place
         run: |
-          # Restore .prisma
-          if [ -d "node_modules/dot-prisma" ]; then
-            mv node_modules/dot-prisma node_modules/.prisma
-            echo "Restored node_modules/.prisma"
+          # actions/download-artifact extracts artifacts into a folder named after the artifact
+          if [ -f "node-app/deploy.zip" ]; then
+            mv node-app/deploy.zip ./deploy.zip
+            echo "Moved node-app/deploy.zip to ./deploy.zip"
           else
-             echo "WARNING: node_modules/dot-prisma not found!"
+            echo "Artifact deploy.zip not found in node-app folder. Listing files:" && ls -la || true
           fi
       
       - name: Login to Azure
