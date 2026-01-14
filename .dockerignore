@@ -6,7 +6,17 @@ yarn-error.log*
 .gitignore
 README.md
 .env
+.env.development
+.env.local
 .nyc_output
 coverage
 .DS_Store
 *.log
+.vscode
+.idea
+*.swp
+*.swo
+*~
+migration_error.log
+uploads/*
+!uploads/.gitkeep
