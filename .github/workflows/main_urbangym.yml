@@ -29,6 +29,17 @@ jobs:
           npm run build --if-present
           npm run test --if-present
 
+      - name: Prepare artifact for upload
+        run: |
+          # Rename .prisma to dot-prisma to avoid GitHub Actions artifact exclusion of hidden files
+          if [ -d "node_modules/.prisma" ]; then
+            mv node_modules/.prisma node_modules/dot-prisma
+            echo "Renamed node_modules/.prisma to node_modules/dot-prisma"
+          else
+            echo "WARNING: node_modules/.prisma not found!"
+            ls -la node_modules/
+          fi
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -47,6 +58,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
+      
+      - name: Restore hidden directories
+        run: |
+          # Restore .prisma
+          if [ -d "node_modules/dot-prisma" ]; then
+            mv node_modules/dot-prisma node_modules/.prisma
+            echo "Restored node_modules/.prisma"
+          else
+             echo "WARNING: node_modules/dot-prisma not found!"
+          fi
       
       - name: Login to Azure
         uses: azure/login@v2
