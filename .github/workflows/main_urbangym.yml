@@ -76,14 +76,6 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_7DEC9AD8E6544FDAA056DE3A9A1A51D3 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_0195631CA89444B2AB7F173D80B467BC }}
 
-      - name: Stop Azure Web App
-        run: |
-          # Find resource group and stop the app
-          RG=$(az webapp show --name urbangym --query resourceGroup --output tsv)
-          echo "Found resource group: $RG"
-          az webapp stop --name urbangym --resource-group "$RG"
-        continue-on-error: true
-
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
@@ -95,12 +87,5 @@ jobs:
           restart: true
           type: 'ZIP'
           remove-additional-files-flag: true
-
-      - name: Start Azure Web App
-        run: |
-          # Find resource group and start the app
-          RG=$(az webapp show --name urbangym --query resourceGroup --output tsv)
-          echo "Starting app in resource group: $RG"
-          az webapp start --name urbangym --resource-group "$RG"
-        continue-on-error: true
+          enable-oryx-build: false
           
