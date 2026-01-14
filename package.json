@@ -17,7 +17,7 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:reset": "npx prisma migrate reset --force",
     "prisma:generate": "npx prisma generate",
-    "postinstall": "npx prisma generate",
+    "postinstall": "chmod +x ./node_modules/.bin/prisma && npx prisma generate",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
