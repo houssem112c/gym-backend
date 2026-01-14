@@ -19,6 +19,9 @@ RUN npx prisma generate
 # Copy source code
 COPY . .
 
+# Make startup script executable
+RUN chmod +x startup.sh
+
 # Build the application (requires devDependencies)
 RUN npm run build
 
@@ -32,4 +35,4 @@ RUN npm prune --production
 EXPOSE 3001
 
 # Start the application
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/src/main.js"]
