@@ -1,4 +1,7 @@
-name: Build and deploy Node.js app to Azure Container Apps - urbangym
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy Node.js app to Azure Web App - urbangym
 
 on:
   push:
@@ -6,45 +9,85 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  ACR_NAME: gymacrgymapp1085
-  CONTAINER_APP_NAME: gym-api-gymapp1085
-  RESOURCE_GROUP: gym-aca-rg-gymapp1085
-
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
-      contents: read
+      contents: read #This is required for actions/checkout
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to Azure
+      - name: Set up Node.js version
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+
+      - name: npm install, build, and test
+        run: |
+          npm install
+          npm run build --if-present
+          npm run test --if-present
+
+      - name: Prepare artifact for upload
+        run: |
+          # Rename .prisma to dot-prisma to avoid GitHub Actions artifact exclusion of hidden files
+          if [ -d "node_modules/.prisma" ]; then
+            mv node_modules/.prisma node_modules/dot-prisma
+            echo "Renamed node_modules/.prisma to node_modules/dot-prisma"
+          else
+            echo "WARNING: node_modules/.prisma not found!"
+            ls -la node_modules/  || true
+          fi
+
+      - name: Build deployment ZIP
+        run: |
+          echo "Creating deploy.zip with runtime files"
+          zip -r deploy.zip dist node_modules package.json package-lock.json prisma startup.sh || true
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: deploy.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+
+      - name: Restore hidden directories
+        run: |
+          # Restore .prisma
+          if [ -d "node_modules/dot-prisma" ]; then
+            mv node_modules/dot-prisma node_modules/.prisma
+            echo "Restored node_modules/.prisma"
+          else
+             echo "WARNING: node_modules/dot-prisma not found!"
+          fi
+      
+      - name: Login to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D57DE4F9C7F8444F84A40A4FA26F35EF }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_7DEC9AD8E6544FDAA056DE3A9A1A51D3 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_0195631CA89444B2AB7F173D80B467BC }}
 
-      - name: Log in to ACR
-        run: |
-          ACR_PASSWORD=$(az acr credential show --name ${{ env.ACR_NAME }} --query "passwords[0].value" -o tsv)
-          echo "${ACR_PASSWORD}" | docker login ${{ env.ACR_NAME }}.azurecr.io -u ${{ env.ACR_NAME }} --password-stdin
-
-      - name: Build and push backend image
-        run: |
-          IMAGE_TAG=${{ env.ACR_NAME }}.azurecr.io/gym-backend:${{ github.sha }}
-          docker build -t $IMAGE_TAG ./gym-backend
-          docker push $IMAGE_TAG
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
-      - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v1
+      - name: 'Deploy to Azure Web App'
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
         with:
-          imageToDeploy: ${{ env.IMAGE_TAG }}
-          containerAppName: ${{ env.CONTAINER_APP_NAME }}
-          resourceGroup: ${{ env.RESOURCE_GROUP }}
-          acrName: ${{ env.ACR_NAME }}
-          
+          app-name: 'urbangym'
+          slot-name: 'Production'
+          package: deploy.zip
+          clean: true
+          restart: true
+          type: 'zip'
