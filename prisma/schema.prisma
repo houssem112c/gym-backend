@@ -36,6 +36,10 @@ model User {
   measurements   UserMeasurement[]
   prs            UserPR[]
   workoutSessions WorkoutSession[]
+  feedPosts      FeedPost[]
+  feedLikes      FeedLike[]
+  feedComments   FeedComment[]
+
   
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -368,4 +372,56 @@ enum SessionStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+model FeedPost {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  media       FeedMedia[]
+  likes       FeedLike[]
+  comments    FeedComment[]
+
+  @@map("feed_posts")
+}
+
+model FeedMedia {
+  id          String   @id @default(uuid())
+  postId      String
+  post        FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url         String
+  mediaType   MediaType @default(IMAGE)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@map("feed_media")
+}
+
+model FeedLike {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId     String
+  post       FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@map("feed_likes")
+}
+
+model FeedComment {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId     String
+  post       FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("feed_comments")
 }

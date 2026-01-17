@@ -7,11 +7,11 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package*.json ./
 
-# Install ALL dependencies (including devDependencies needed for build)
-RUN npm ci && npm cache clean --force
-
 # Copy prisma directory
 COPY prisma ./prisma/
+
+# Install ALL dependencies (including devDependencies needed for build)
+RUN npm ci && npm cache clean --force
 
 # Generate Prisma client
 RUN npx prisma generate
