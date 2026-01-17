@@ -8,8 +8,13 @@ export class FeedController {
     constructor(private readonly feedService: FeedService) { }
 
     @Get()
-    async getFeed() {
-        return this.feedService.getFeed();
+    async getFeed(@Request() req) {
+        return this.feedService.getFeed(req.user.id);
+    }
+
+    @Get('user/:userId')
+    async getPostsByUser(@Param('userId') userId: string) {
+        return this.feedService.getPostsByUser(userId);
     }
 
     @Post()
@@ -35,5 +40,10 @@ export class FeedController {
     @Post(':id/comments')
     async addComment(@Request() req, @Param('id') id: string, @Body('content') content: string) {
         return this.feedService.addComment(req.user.id, id, content);
+    }
+
+    @Post(':id/share')
+    async sharePost(@Request() req, @Param('id') id: string, @Body('content') content?: string) {
+        return this.feedService.sharePost(req.user.id, id, content);
     }
 }

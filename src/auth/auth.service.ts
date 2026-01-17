@@ -12,7 +12,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto) {
     const { email, password, name } = registerDto;
@@ -40,7 +40,7 @@ export class AuthService {
 
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email);
-    
+
     // Store refresh token
     await this.updateRefreshToken(user.id, tokens.refreshToken);
 
@@ -76,7 +76,7 @@ export class AuthService {
 
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email);
-    
+
     // Store refresh token
     await this.updateRefreshToken(user.id, tokens.refreshToken);
 
@@ -112,7 +112,17 @@ export class AuthService {
     return user;
   }
 
-  async refreshTokens(userId: string, refreshToken: string) {
+  async refreshTokens(refreshToken: string) {
+    let payload;
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      });
+    } catch (e) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const userId = payload.sub;
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -160,7 +170,7 @@ export class AuthService {
 
   private async generateTokens(userId: string, email: string) {
     const payload = { sub: userId, email };
-    
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_SECRET'),
@@ -229,8 +239,8 @@ export class AuthService {
       where: { id: userId },
       data: {
         ...updateProfileDto,
-        dateOfBirth: updateProfileDto.dateOfBirth 
-          ? new Date(updateProfileDto.dateOfBirth) 
+        dateOfBirth: updateProfileDto.dateOfBirth
+          ? new Date(updateProfileDto.dateOfBirth)
           : undefined,
         updatedAt: new Date(),
       },

@@ -2,13 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateStoryDto, UpdateStoryDto } from './dto/story.dto';
+import { NotificationType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class StoriesService {
   constructor(
     private prisma: PrismaService,
     private supabase: SupabaseService,
-  ) {}
+    private notificationsService: NotificationsService,
+  ) { }
 
   async createWithFile(file: Express.Multer.File, createStoryDto: CreateStoryDto) {
     // Upload file to Supabase
@@ -25,7 +28,7 @@ export class StoriesService {
     // Default duration to 12 hours (43200 seconds) if not provided
     const duration = createStoryDto.duration || 43200;
 
-    return this.prisma.story.create({
+    const story = await this.prisma.story.create({
       data: {
         ...createStoryDto,
         mediaUrl,
@@ -37,10 +40,15 @@ export class StoriesService {
         category: true,
       },
     });
+
+    // Trigger notifications for all users (Admin story)
+    this.triggerStoryNotifications(story.id, 'New Story shared!');
+
+    return story;
   }
 
   async create(createStoryDto: CreateStoryDto) {
-    return this.prisma.story.create({
+    const story = await this.prisma.story.create({
       data: {
         categoryId: createStoryDto.categoryId,
         mediaUrl: createStoryDto.mediaUrl,
@@ -54,6 +62,29 @@ export class StoriesService {
         category: true,
       },
     });
+
+    // Trigger notifications
+    this.triggerStoryNotifications(story.id, 'New Story shared!');
+
+    return story;
+  }
+
+  private async triggerStoryNotifications(storyId: string, message: string) {
+    try {
+      const allUsers = await this.prisma.user.findMany({ select: { id: true } });
+      for (const user of allUsers) {
+        await this.notificationsService.createNotification({
+          userId: user.id,
+          actorId: 'system', // Or a specific admin ID if available in context
+          type: NotificationType.STORY_CREATED,
+          referenceId: storyId,
+          title: 'New Story',
+          message: message,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to trigger story notifications:', error);
+    }
   }
 
   async findAll() {
@@ -142,7 +173,7 @@ export class StoriesService {
 
   async remove(id: string) {
     const story = await this.findOne(id); // Check if exists
-    
+
     // Delete file from Supabase if it exists
     if (story.mediaUrl) {
       try {
@@ -151,7 +182,7 @@ export class StoriesService {
         console.error('Failed to delete file from storage:', error);
       }
     }
-    
+
     return this.prisma.story.delete({
       where: { id },
     });

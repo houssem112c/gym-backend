@@ -10,10 +10,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
     private authService: AuthService,
   ) {
+    const secret = configService.get('JWT_SECRET');
+    console.log('🛡️ JWT Strategy initialized');
+    console.log('🛡️ JWT_SECRET present:', !!secret);
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get('JWT_SECRET') || 'your-secret-key',
+      secretOrKey: secret || 'your-secret-key',
     });
   }
 
@@ -21,7 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!payload.sub) {
       return null;
     }
-    
+
     return this.authService.validateUser(payload.sub);
   }
 }

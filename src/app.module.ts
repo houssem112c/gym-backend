@@ -18,6 +18,8 @@ import { UserProgressModule } from './user-progress/user-progress.module';
 import { WorkoutSessionsModule } from './workout-sessions/workout-sessions.module';
 import { UsersModule } from './users/users.module';
 import { FeedModule } from './feed/feed.module';
+import { FriendshipsModule } from './friendships/friendships.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 
 @Module({
@@ -45,6 +47,8 @@ import { FeedModule } from './feed/feed.module';
     WorkoutSessionsModule,
     UsersModule,
     FeedModule,
+    FriendshipsModule,
+    NotificationsModule,
   ],
   providers: [
     {

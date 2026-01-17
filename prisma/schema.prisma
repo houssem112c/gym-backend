@@ -3,8 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-1.1.x"]
-
+  binaryTargets = ["native", "debian-openssl-1.1.x", "linux-musl", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -39,6 +38,10 @@ model User {
   feedPosts      FeedPost[]
   feedLikes      FeedLike[]
   feedComments   FeedComment[]
+  notifications  Notification[]
+
+  sentRequests     Friendship[] @relation("SentRequests")
+  receivedRequests Friendship[] @relation("ReceivedRequests")
 
   
   createdAt      DateTime    @default(now())
@@ -386,6 +389,11 @@ model FeedPost {
   likes       FeedLike[]
   comments    FeedComment[]
 
+  // Sharing logic
+  sharedPostId String?
+  sharedPost   FeedPost?  @relation("Shares", fields: [sharedPostId], references: [id])
+  shares       FeedPost[] @relation("Shares")
+
   @@map("feed_posts")
 }
 
@@ -424,4 +432,46 @@ model FeedComment {
   updatedAt  DateTime @updatedAt
 
   @@map("feed_comments")
+}
+
+model Friendship {
+  id          String           @id @default(uuid())
+  requesterId String
+  requester   User             @relation("SentRequests", fields: [requesterId], references: [id], onDelete: Cascade)
+  addresseeId String
+  addressee   User             @relation("ReceivedRequests", fields: [addresseeId], references: [id], onDelete: Cascade)
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([requesterId, addresseeId])
+  @@map("friendships")
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  actorId     String           // User who triggered it
+  referenceId String?          // ID of post, story, or friendship
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  POST_CREATED
+  STORY_CREATED
+  FRIEND_REQUEST
+  FRIEND_ACCEPTED
 }

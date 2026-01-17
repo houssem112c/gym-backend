@@ -21,6 +21,7 @@ describe('AuthService', () => {
 
     const mockJwtService = {
         signAsync: jest.fn(),
+        verifyAsync: jest.fn(),
     };
 
     const mockConfigService = {
@@ -100,20 +101,22 @@ describe('AuthService', () => {
     describe('refreshTokens', () => {
         it('should refresh tokens', async () => {
             const user = { id: '1', email: 'test@example.com', refreshToken: 'hashedRT' };
+            (jwtService.verifyAsync as jest.Mock).mockResolvedValue({ sub: '1' });
             (prisma.user.findUnique as jest.Mock).mockResolvedValue(user);
             (bcrypt.compare as jest.Mock).mockResolvedValue(true);
             (jwtService.signAsync as jest.Mock).mockResolvedValue('newToken');
 
-            const result = await service.refreshTokens('1', 'rt');
+            const result = await service.refreshTokens('rt');
             expect(result.accessToken).toBe('newToken');
         });
 
         it('should throw UnauthorizedException on invalid token', async () => {
             const user = { id: '1', email: 'test@example.com', refreshToken: 'hashedRT' };
+            (jwtService.verifyAsync as jest.Mock).mockResolvedValue({ sub: '1' });
             (prisma.user.findUnique as jest.Mock).mockResolvedValue(user);
             (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-            await expect(service.refreshTokens('1', 'rt')).rejects.toThrow(UnauthorizedException);
+            await expect(service.refreshTokens('rt')).rejects.toThrow(UnauthorizedException);
         });
     });
 });

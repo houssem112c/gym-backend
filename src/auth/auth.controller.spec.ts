@@ -58,11 +58,10 @@ describe('AuthController', () => {
     describe('refreshTokens', () => {
         it('should refresh tokens', async () => {
             const dto = { refreshToken: 'rt' };
-            const req = { user: { id: '1' } };
             mockAuthService.refreshTokens.mockResolvedValue({ accessToken: 'new' });
 
-            await controller.refreshTokens(dto, req);
-            expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('1', 'rt');
+            await controller.refreshTokens(dto);
+            expect(mockAuthService.refreshTokens).toHaveBeenCalledWith('rt');
         });
     });
 

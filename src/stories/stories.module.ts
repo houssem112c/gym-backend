@@ -3,10 +3,11 @@ import { StoriesService } from './stories.service';
 import { StoriesController } from './stories.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SupabaseModule } from '../supabase/supabase.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [PrismaModule, SupabaseModule],
+  imports: [PrismaModule, SupabaseModule, NotificationsModule],
   controllers: [StoriesController],
   providers: [StoriesService],
 })
-export class StoriesModule {}
+export class StoriesModule { }

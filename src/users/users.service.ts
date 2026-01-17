@@ -16,9 +16,53 @@ export class UsersService {
                 role: true,
                 isActive: true,
                 phone: true,
+                avatar: true,
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async searchUsers(query: string, currentUserId: string) {
+        return this.prisma.user.findMany({
+            where: {
+                AND: [
+                    {
+                        OR: [
+                            { name: { contains: query, mode: 'insensitive' } },
+                            { email: { contains: query, mode: 'insensitive' } },
+                        ],
+                    },
+                    { id: { not: currentUserId } },
+                ],
+            },
+            select: {
+                id: true,
+                name: true,
+                avatar: true,
+                email: true,
+            },
+            take: 20,
+        });
+    }
+
+    async getUserProfile(id: string) {
+        return this.prisma.user.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                name: true,
+                avatar: true,
+                bio: true,
+                role: true,
+                _count: {
+                    select: {
+                        feedPosts: true,
+                        sentRequests: { where: { status: 'ACCEPTED' } },
+                        receivedRequests: { where: { status: 'ACCEPTED' } },
+                    }
+                }
+            }
         });
     }
 

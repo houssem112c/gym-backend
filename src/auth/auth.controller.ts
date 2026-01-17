@@ -6,7 +6,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
@@ -19,12 +19,10 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto, @Req() req) {
-    const userId = req.user?.id;
-    return this.authService.refreshTokens(userId, refreshTokenDto.refreshToken);
+  async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -40,7 +38,7 @@ export class AuthController {
   async verifyAdmin(@Req() req) {
     console.log('Verify Admin - req.user:', req.user);
     const user = req.user; // The user is already validated by the JWT strategy
-    
+
     if (!user || user.role !== 'ADMIN') {
       throw new UnauthorizedException('Admin access required');
     }
