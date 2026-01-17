@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { StoriesService } from './stories.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('StoriesService', () => {
     let service: StoriesService;
@@ -23,12 +24,17 @@ describe('StoriesService', () => {
         deleteFile: jest.fn(),
     };
 
+    const mockNotificationsService = {
+        createNotification: jest.fn(),
+    };
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 StoriesService,
                 { provide: PrismaService, useValue: mockPrismaService },
                 { provide: SupabaseService, useValue: mockSupabaseService },
+                { provide: NotificationsService, useValue: mockNotificationsService },
             ],
         }).compile();
 
