@@ -24,9 +24,9 @@ jobs:
       - name: Log in to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D57DE4F9C7F8444F84A40A4FA26F35EF }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_7DEC9AD8E6544FDAA056DE3A9A1A51D3 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_0195631CA89444B2AB7F173D80B467BC }}
 
       - name: Log in to ACR
         run: |
