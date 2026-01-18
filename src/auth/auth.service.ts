@@ -51,6 +51,13 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        avatar: user.avatar,
+        bio: user.bio,
+        phone: user.phone,
+        trainingFrequency: user.trainingFrequency,
+        trainingDays: user.trainingDays,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
     };
   }
@@ -90,6 +97,13 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        avatar: user.avatar,
+        bio: user.bio,
+        phone: user.phone,
+        trainingFrequency: user.trainingFrequency,
+        trainingDays: user.trainingDays,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
     };
   }
