@@ -95,7 +95,7 @@ export class FeedService {
                 OR: [
                     { userId: userId }, // My own posts
                     { userId: { in: friendIds } }, // Friends' posts
-                    { user: { role: 'ADMIN' } }, // All admin posts
+                    { user: { role: Role.ADMIN } }, // All admin posts
                 ],
             },
             orderBy: { createdAt: 'desc' },
@@ -115,6 +115,32 @@ export class FeedService {
                     }
                 }
             },
+        });
+    }
+
+    async findAllAdmin() {
+        return this.prisma.feedPost.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: { select: { id: true, name: true, avatar: true } },
+                media: { orderBy: { order: 'asc' } },
+                _count: {
+                    select: { likes: true, comments: true },
+                },
+                sharedPost: {
+                    include: {
+                        user: { select: { id: true, name: true, avatar: true } },
+                    }
+                }
+            },
+        });
+    }
+
+    async deletePost(id: string) {
+        // Prisma will handle relations if onDelete: Cascade is set in schema
+        // Let's verify schema later or handle manually here for safety
+        return this.prisma.feedPost.delete({
+            where: { id },
         });
     }
 
@@ -191,6 +217,15 @@ export class FeedService {
 
         if (!postToShare) {
             throw new Error('Post not found');
+        }
+
+        const originalPost = await this.prisma.feedPost.findUnique({
+            where: { id: originalPostId },
+            select: { userId: true }
+        });
+
+        if (originalPost?.userId === userId) {
+            throw new Error('You cannot share your own post.');
         }
 
         if (postToShare.sharedPostId) {

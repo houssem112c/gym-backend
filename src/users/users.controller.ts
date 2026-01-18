@@ -60,6 +60,11 @@ export class UsersController {
     remove(@Param('id') id: string) {
         return this.usersService.remove(id);
     }
+
+    @Patch(':id/status')
+    toggleStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+        return this.usersService.update(id, { isActive });
+    }
     @Get('export/excel')
     async exportUsers(@Res() res: Response) {
         const buffer = await this.usersService.exportToExcel();
