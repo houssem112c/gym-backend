@@ -183,6 +183,20 @@ export class FeedService {
     }
 
     async sharePost(userId: string, originalPostId: string, content?: string) {
+        // Find the post to check if it's already a shared post
+        const postToShare = await this.prisma.feedPost.findUnique({
+            where: { id: originalPostId },
+            select: { sharedPostId: true }
+        });
+
+        if (!postToShare) {
+            throw new Error('Post not found');
+        }
+
+        if (postToShare.sharedPostId) {
+            throw new Error('You cannot share a shared post. Please share the original post.');
+        }
+
         const sharedPost = await this.prisma.feedPost.create({
             data: {
                 userId,
