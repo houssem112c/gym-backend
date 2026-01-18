@@ -108,6 +108,12 @@ export class FeedService {
                     select: { likes: true, comments: true },
                 },
                 likes: true,
+                sharedPost: {
+                    include: {
+                        user: { select: { id: true, name: true, avatar: true } },
+                        media: { orderBy: { order: 'asc' } },
+                    }
+                }
             },
         });
     }
@@ -125,6 +131,12 @@ export class FeedService {
                     select: { likes: true, comments: true },
                 },
                 likes: true,
+                sharedPost: {
+                    include: {
+                        user: { select: { id: true, name: true, avatar: true } },
+                        media: { orderBy: { order: 'asc' } },
+                    }
+                }
             },
         });
     }
@@ -182,6 +194,7 @@ export class FeedService {
                 sharedPost: {
                     include: {
                         user: { select: { id: true, name: true, avatar: true } },
+                        media: { orderBy: { order: 'asc' } },
                     }
                 }
             },
