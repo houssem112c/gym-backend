@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { XpAction } from '@prisma/client';
+import { GamificationService } from '../gamification/gamification.service';
 import { CreateCourseDto, UpdateCourseDto, CreateScheduleDto, UpdateScheduleDto } from './dto/course.dto';
 
 @Injectable()
@@ -8,7 +10,8 @@ export class CoursesService {
   constructor(
     private prisma: PrismaService,
     private supabase: SupabaseService,
-  ) {}
+    private gamificationService: GamificationService,
+  ) { }
 
   // Courses CRUD
   async createCourse(createCourseDto: CreateCourseDto) {
@@ -21,10 +24,18 @@ export class CoursesService {
       throw new NotFoundException(`Category with ID ${createCourseDto.categoryId} not found`);
     }
 
-    return this.prisma.course.create({
+    return (this.prisma.course as any).create({
       data: createCourseDto,
       include: {
         category: true,
+        instructorUser: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
+          }
+        },
         schedules: {
           where: { isActive: true },
           orderBy: { startTime: 'asc' },
@@ -34,10 +45,40 @@ export class CoursesService {
   }
 
   async findAllCourses() {
-    return this.prisma.course.findMany({
+    return (this.prisma.course as any).findMany({
       where: { isActive: true },
       include: {
         category: true,
+        instructorUser: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
+          }
+        },
+        schedules: {
+          where: { isActive: true },
+          orderBy: { startTime: 'asc' },
+        },
+      },
+      orderBy: { title: 'asc' },
+    });
+  }
+
+  async findMyCourses(instructorId: string) {
+    return (this.prisma.course as any).findMany({
+      where: { instructorId, isActive: true },
+      include: {
+        category: true,
+        instructorUser: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
+          }
+        },
         schedules: {
           where: { isActive: true },
           orderBy: { startTime: 'asc' },
@@ -48,10 +89,18 @@ export class CoursesService {
   }
 
   async findOneCourse(id: string) {
-    const course = await this.prisma.course.findUnique({
+    const course = await (this.prisma.course as any).findUnique({
       where: { id },
       include: {
         category: true,
+        instructorUser: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
+          }
+        },
         schedules: {
           where: { isActive: true },
           orderBy: { startTime: 'asc' },
@@ -79,11 +128,19 @@ export class CoursesService {
     }
 
     try {
-      return await this.prisma.course.update({
+      return await (this.prisma.course as any).update({
         where: { id },
         data: updateCourseDto,
         include: {
           category: true,
+          instructorUser: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              avatar: true,
+            }
+          },
           schedules: {
             where: { isActive: true },
             orderBy: { startTime: 'asc' },
@@ -136,7 +193,19 @@ export class CoursesService {
             category: true,
           },
         },
-      },
+        bookings: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+              }
+            }
+          }
+        },
+      } as any,
       orderBy: { startTime: 'asc' },
     });
   }
@@ -150,7 +219,19 @@ export class CoursesService {
             category: true,
           },
         },
-      },
+        bookings: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+              }
+            }
+          }
+        },
+      } as any,
     });
 
     if (!schedule) {
@@ -189,7 +270,8 @@ export class CoursesService {
   }
 
   // Calendar schedules by date range
-  async getCalendarSchedules(startDate: Date, endDate: Date) {
+  async getCalendarSchedules(startDate: Date, endDate: Date, userId?: string) {
+    // Fetch course schedules
     const schedules = await this.prisma.courseSchedule.findMany({
       where: {
         isActive: true,
@@ -214,10 +296,152 @@ export class CoursesService {
             category: true,
           },
         },
-      },
+        bookings: userId ? {
+          where: { userId }
+        } : false,
+      } as any,
       orderBy: { startTime: 'asc' },
     });
 
-    return schedules;
+    let results: any[] = schedules;
+
+    if (userId) {
+      // Mark course schedules as booked
+      results = schedules.map(s => ({
+        ...s,
+        isBooked: (s as any).bookings.length > 0
+      }));
+
+      // Fetch private sessions for this user (as client or coach)
+      const privateSessions = await (this.prisma as any).privateSession.findMany({
+        where: {
+          status: 'ACCEPTED',
+          date: {
+            gte: startDate,
+            lte: endDate
+          },
+          OR: [
+            { userId: userId },
+            { coachId: userId }
+          ]
+        },
+        include: {
+          coach: {
+            select: { name: true, email: true }
+          },
+          user: {
+            select: { name: true, email: true }
+          }
+        }
+      });
+
+      // Map private sessions to schedule format
+      const mappedPrivateSessions = privateSessions.map(session => ({
+        id: session.id,
+        courseId: 'private',
+        title: `Private Session with ${session.userId === userId ? session.coach.name : session.user.name}`,
+        coachName: session.coach.name,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        isRecurring: false,
+        specificDate: session.date,
+        dayOfWeek: new Date(session.date).getDay(),
+        isBooked: true, // Always booked if it's an accepted private session
+        course: {
+          id: 'private',
+          title: 'Private 1-on-1 Session',
+          description: session.note,
+          instructor: session.coach.name,
+          capacity: 1,
+          // Mock category for UI consistency
+          category: {
+            name: 'Private',
+            color: '#d946ef', // Fuchsia/Pink for private sessions
+            icon: '🔒'
+          }
+        }
+      }));
+
+      results = [...results, ...mappedPrivateSessions];
+    }
+
+    return results;
+  }
+
+  async bookSession(userId: string, scheduleId: string) {
+    // 1. Get schedule and course info
+    const schedule = await (this.prisma.courseSchedule as any).findUnique({
+      where: { id: scheduleId },
+      include: {
+        course: true,
+        _count: {
+          select: { bookings: true }
+        }
+      }
+    });
+
+    if (!schedule) {
+      throw new NotFoundException(`Session with ID ${scheduleId} not found`);
+    }
+
+    // 2. Check capacity
+    if ((schedule as any).course.capacity > 0 && (schedule as any)._count.bookings >= (schedule as any).course.capacity) {
+      throw new Error('This session is already full');
+    }
+
+    // 3. Create booking and assign coach atomically
+    return await this.prisma.$transaction(async (tx) => {
+      // Create booking
+      const booking = await (tx as any).courseBooking.create({
+        data: {
+          userId,
+          scheduleId,
+        },
+        include: {
+          schedule: {
+            include: {
+              course: true
+            }
+          }
+        }
+      });
+
+      // Assign the course instructor as the user's coach if not already assigned
+      if ((booking as any).schedule.course.instructorId) {
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            coachId: (booking as any).schedule.course.instructorId
+          } as any
+        });
+      }
+
+      return booking;
+    });
+  }
+
+  async getMyBookings(userId: string) {
+    return (this.prisma as any).courseBooking.findMany({
+      where: { userId },
+      include: {
+        schedule: {
+          include: {
+            course: {
+              include: {
+                category: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async completeCourse(userId: string, courseId: string) {
+    const course = await this.findOneCourse(courseId);
+
+    // Award XP for course completion
+    return this.gamificationService.awardXp(userId, XpAction.COURSE_COMPLETED, 20, { courseId: course.id, title: course.title });
   }
 }

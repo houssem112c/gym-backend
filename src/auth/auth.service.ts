@@ -3,6 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { XpAction } from '@prisma/client';
+import { GamificationService } from '../gamification/gamification.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -12,6 +14,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private gamificationService: GamificationService,
   ) { }
 
   async register(registerDto: RegisterDto) {
@@ -86,6 +89,9 @@ export class AuthService {
 
     // Store refresh token
     await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+    // Update login streak and award XP
+    await this.gamificationService.updateLoginStreak(user.id);
 
     return {
       access_token: tokens.accessToken,
@@ -279,6 +285,9 @@ export class AuthService {
         updatedAt: true,
       },
     });
+
+    // Award XP for profile update (once per day or simply award it)
+    await this.gamificationService.awardXp(userId, XpAction.PROFILE_UPDATED, 5);
 
     return updatedUser;
   }

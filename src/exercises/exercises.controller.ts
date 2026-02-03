@@ -19,7 +19,7 @@ export class ExercisesController {
 
     @Post()
     @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, (Role as any).COACH)
     @UseInterceptors(
         FileFieldsInterceptor([
             { name: 'image', maxCount: 1 },
@@ -74,7 +74,7 @@ export class ExercisesController {
 
     @Patch(':id')
     @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, (Role as any).COACH)
     @UseInterceptors(
         FileFieldsInterceptor([
             { name: 'image', maxCount: 1 },
@@ -116,7 +116,7 @@ export class ExercisesController {
 
     @Delete(':id')
     @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, (Role as any).COACH)
     remove(@Param('id') id: string) {
         return this.exercisesService.remove(id);
     }

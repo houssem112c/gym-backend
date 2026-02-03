@@ -14,7 +14,7 @@ export class FeedController {
 
     @Get('user/:userId')
     async getPostsByUser(@Param('userId') userId: string) {
-        return this.feedService.getPostsByUser(userId);
+        return this.feedService.getUserPosts(userId);
     }
 
     @Post()

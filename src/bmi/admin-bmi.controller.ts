@@ -1,14 +1,14 @@
 import {
-    Controller,
-    Get,
-    Delete,
-    Param,
-    UseGuards,
-    Req,
-    HttpStatus,
-    HttpCode,
-    NotFoundException,
-    ForbiddenException
+  Controller,
+  Get,
+  Delete,
+  Param,
+  UseGuards,
+  Req,
+  HttpStatus,
+  HttpCode,
+  NotFoundException,
+  ForbiddenException
 } from '@nestjs/common';
 import { BmiService } from '../bmi/bmi.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -20,14 +20,14 @@ export class AdminBmiController {
   constructor(
     private bmiService: BmiService,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   // Get all BMI records across all users (admin only)
   @Get()
   async getAllBmiRecords(@Req() req) {
-    // Check if user is admin
-    if (req.user.role !== 'ADMIN') {
-      throw new ForbiddenException('Admin access required');
+    // Check if user is admin or coach
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'COACH') {
+      throw new ForbiddenException('Admin or Coach access required');
     }
 
     try {
@@ -43,7 +43,7 @@ export class AdminBmiController {
         },
         orderBy: { createdAt: 'desc' }
       });
-      
+
       return {
         success: true,
         message: 'BMI records retrieved successfully',
@@ -62,9 +62,9 @@ export class AdminBmiController {
   // Get BMI statistics for admin dashboard
   @Get('stats')
   async getBmiStats(@Req() req) {
-    // Check if user is admin
-    if (req.user.role !== 'ADMIN') {
-      throw new ForbiddenException('Admin access required');
+    // Check if user is admin or coach
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'COACH') {
+      throw new ForbiddenException('Admin or Coach access required');
     }
 
     try {
@@ -77,25 +77,25 @@ export class AdminBmiController {
       ] = await Promise.all([
         // Total BMI records
         this.prisma.bmiRecord.count(),
-        
+
         // Unique users with BMI records
         this.prisma.bmiRecord.findMany({
           select: { userId: true },
           distinct: ['userId']
         }).then(records => records.length),
-        
+
         // Records by status
         this.prisma.bmiRecord.groupBy({
           by: ['status'],
           _count: true,
         }),
-        
+
         // Records by category
         this.prisma.bmiRecord.groupBy({
           by: ['category'],
           _count: true,
         }),
-        
+
         // Recent records (last 7 days)
         this.prisma.bmiRecord.count({
           where: {
@@ -105,7 +105,7 @@ export class AdminBmiController {
           }
         })
       ]);
-      
+
       return {
         success: true,
         data: {
@@ -134,9 +134,9 @@ export class AdminBmiController {
   // Get BMI records for a specific user
   @Get('user/:userId')
   async getUserBmiRecords(@Param('userId') userId: string, @Req() req) {
-    // Check if user is admin
-    if (req.user.role !== 'ADMIN') {
-      throw new ForbiddenException('Admin access required');
+    // Check if user is admin or coach
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'COACH') {
+      throw new ForbiddenException('Admin or Coach access required');
     }
 
     try {
@@ -153,7 +153,7 @@ export class AdminBmiController {
         },
         orderBy: { createdAt: 'desc' }
       });
-      
+
       return {
         success: true,
         message: 'User BMI records retrieved successfully',
@@ -191,7 +191,7 @@ export class AdminBmiController {
       await this.prisma.bmiRecord.delete({
         where: { id }
       });
-      
+
       return {
         success: true,
         message: 'BMI record deleted successfully',

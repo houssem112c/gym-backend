@@ -11,12 +11,18 @@ import {
   UseInterceptors,
   UploadedFiles,
   Put,
+  Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CoursesService } from './courses.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateCourseDto, UpdateCourseDto, CreateScheduleDto, UpdateScheduleDto } from './dto/course.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 
 @Controller('courses')
 export class CoursesController {
@@ -262,15 +268,23 @@ export class CoursesController {
   }
 
   @Get('calendar')
-  getCalendar(@Query('startDate') startDate: string, @Query('endDate') endDate: string) {
+  @UseGuards(OptionalJwtAuthGuard)
+  getCalendar(@Query('startDate') startDate: string, @Query('endDate') endDate: string, @Request() req) {
     const start = new Date(startDate);
     const end = new Date(endDate);
-    return this.coursesService.getCalendarSchedules(start, end);
+    return this.coursesService.getCalendarSchedules(start, end, req.user?.id);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.coursesService.findOneCourse(id);
+  }
+
+  @Get('coach/my-courses')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, (Role as any).COACH)
+  async getMyCourses(@Request() req) {
+    return this.coursesService.findMyCourses(req.user.id);
   }
 
   // Admin endpoints (protected)
@@ -347,6 +361,7 @@ export class CoursesController {
         duration: parseInt(body.duration),
         capacity: parseInt(body.capacity),
         instructor: body.instructor,
+        instructorId: body.instructorId,
         categoryId: body.categoryId,
       };
 
@@ -548,20 +563,67 @@ export class CoursesController {
   }
 
   @Post(':courseId/schedules')
-  @UseGuards(JwtAuthGuard)
-  createSchedule(@Param('courseId') courseId: string, @Body() createScheduleDto: CreateScheduleDto) {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, (Role as any).COACH)
+  async createSchedule(
+    @Param('courseId') courseId: string,
+    @Body() createScheduleDto: CreateScheduleDto,
+    @Request() req
+  ) {
+    if (req.user.role === 'COACH') {
+      const course = await this.coursesService.findOneCourse(courseId);
+      if ((course as any).instructorId !== req.user.id) {
+        throw new ForbiddenException('You can only manage schedules for your assigned courses');
+      }
+    }
     return this.coursesService.createSchedule(courseId, createScheduleDto);
   }
 
   @Patch(':courseId/schedules/:id')
-  @UseGuards(JwtAuthGuard)
-  updateSchedule(@Param('courseId') courseId: string, @Param('id') id: string, @Body() updateScheduleDto: UpdateScheduleDto) {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, (Role as any).COACH)
+  async updateSchedule(
+    @Param('courseId') courseId: string,
+    @Param('id') id: string,
+    @Body() updateScheduleDto: UpdateScheduleDto,
+    @Request() req
+  ) {
+    if (req.user.role === 'COACH') {
+      const course = await this.coursesService.findOneCourse(courseId);
+      if ((course as any).instructorId !== req.user.id) {
+        throw new ForbiddenException('You can only manage schedules for your assigned courses');
+      }
+    }
     return this.coursesService.updateSchedule(id, updateScheduleDto);
   }
 
   @Delete(':courseId/schedules/:id')
-  @UseGuards(JwtAuthGuard)
-  removeSchedule(@Param('courseId') courseId: string, @Param('id') id: string) {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, (Role as any).COACH)
+  async removeSchedule(
+    @Param('courseId') courseId: string,
+    @Param('id') id: string,
+    @Request() req
+  ) {
+    if (req.user.role === 'COACH') {
+      const course = await this.coursesService.findOneCourse(courseId);
+      if ((course as any).instructorId !== req.user.id) {
+        throw new ForbiddenException('You can only manage schedules for your assigned courses');
+      }
+    }
     return this.coursesService.removeSchedule(id);
+  }
+
+  // Booking endpoints
+  @Post('schedules/:scheduleId/book')
+  @UseGuards(JwtAuthGuard)
+  async bookSession(@Param('scheduleId') scheduleId: string, @Request() req) {
+    return this.coursesService.bookSession(req.user.id, scheduleId);
+  }
+
+  @Get('my/bookings')
+  @UseGuards(JwtAuthGuard)
+  async getMyBookings(@Request() req) {
+    return this.coursesService.getMyBookings(req.user.id);
   }
 }

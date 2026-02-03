@@ -39,8 +39,8 @@ export class AuthController {
     console.log('Verify Admin - req.user:', req.user);
     const user = req.user; // The user is already validated by the JWT strategy
 
-    if (!user || user.role !== 'ADMIN') {
-      throw new UnauthorizedException('Admin access required');
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'COACH')) {
+      throw new UnauthorizedException('Admin or Coach access required');
     }
 
     return {

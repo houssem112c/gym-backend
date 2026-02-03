@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { CoursesModule } from './courses/courses.module';
 import { ContactsModule } from './contacts/contacts.module';
+import { ProductsModule } from './products/products.module';
 import { LocationsModule } from './locations/locations.module';
 import { BmiModule } from './bmi/bmi.module';
 import { HealthModule } from './health/health.module';
@@ -20,6 +21,11 @@ import { UsersModule } from './users/users.module';
 import { FeedModule } from './feed/feed.module';
 import { FriendshipsModule } from './friendships/friendships.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
+import { GamificationModule } from './gamification/gamification.module';
+import { CoachModule } from './coach/coach.module';
+import { PrivateSessionsModule } from './private-sessions/private-sessions.module';
 
 
 @Module({
@@ -49,6 +55,12 @@ import { NotificationsModule } from './notifications/notifications.module';
     FeedModule,
     FriendshipsModule,
     NotificationsModule,
+    ProductsModule,
+    OrdersModule,
+    PaymentsModule,
+    GamificationModule,
+    CoachModule,
+    PrivateSessionsModule,
   ],
   providers: [
     {

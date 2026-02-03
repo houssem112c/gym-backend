@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBmiRecordDto, Gender } from './dto/create-bmi-record.dto';
+import { XpAction } from '@prisma/client';
+import { GamificationService } from '../gamification/gamification.service';
 
 export enum BmiStatus {
   OK = 'OK',
@@ -24,7 +26,10 @@ interface BmiCategoryRule {
 
 @Injectable()
 export class BmiService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private gamificationService: GamificationService,
+  ) { }
 
   calculateBmi(weight: number, height: number): number {
     // BMI = weight (kg) / height (m)²
@@ -140,7 +145,7 @@ export class BmiService {
   private getChildBmiCategory(bmiValue: number, age: number, gender: Gender): { category: string; status: BmiStatus; recommendations: string } {
     // Simplified BMI ranges for children (in real implementation, you'd use CDC/WHO percentile charts)
     // These are approximate ranges based on typical percentile distributions
-    
+
     let underweightThreshold: number;
     let overweightThreshold: number;
     let obeseThreshold: number;
@@ -220,6 +225,9 @@ export class BmiService {
       }
     });
 
+    // Award XP for BMI record
+    await this.gamificationService.awardXp(userId, XpAction.BMI_RECORDED, 3, { recordId: bmiRecord.id });
+
     return {
       ...bmiRecord,
       recommendations: categoryResult.recommendations,
@@ -244,7 +252,7 @@ export class BmiService {
 
   async getBmiRecord(id: string, userId: string) {
     return this.prisma.bmiRecord.findFirst({
-      where: { 
+      where: {
         id,
         userId // Ensure user can only access their own records
       },

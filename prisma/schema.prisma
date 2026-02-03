@@ -29,6 +29,11 @@ model User {
   city         String?     // City
   country      String?     // Country
   
+  // Coach relationship
+  coachId      String?
+  coach        User?       @relation("UserCoach", fields: [coachId], references: [id])
+  assignedUsers User[]     @relation("UserCoach")
+
   contacts       Contact[]   // User's contact messages
   bmiRecords     BmiRecord[] // User's BMI records
   progressPhotos UserProgressPhoto[]
@@ -42,10 +47,26 @@ model User {
 
   sentRequests     Friendship[] @relation("SentRequests")
   receivedRequests Friendship[] @relation("ReceivedRequests")
+  orders           Order[]
+  
+  // Gamification
+  gamification     UserGamification?
+  badges           UserBadge[]
+  xpTransactions   XpTransaction[]
   
   // Training Configuration
   trainingFrequency Int?      // How many days per week
   trainingDays      Int[]     // Days of the week (0=Sunday, 1=Monday, ..., 6=Saturday)
+  
+  // Courses coached by this user (Admin or Coach)
+  coachedCourses Course[]     @relation("CourseInstructor")
+  
+  // Bookings
+  courseBookings CourseBooking[]
+  
+  // Private Sessions
+  myPrivateSessions PrivateSession[] @relation("ClientSessions")
+  coachedPrivateSessions PrivateSession[] @relation("CoachSessions")
   
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -55,6 +76,7 @@ model User {
 
 enum Role {
   ADMIN
+  COACH
   USER
 }
 
@@ -82,6 +104,8 @@ model Course {
   duration    Int // duration in minutes
   capacity    Int // max participants
   instructor  String
+  instructorId String?
+  instructorUser User?            @relation("CourseInstructor", fields: [instructorId], references: [id])
   categoryId  String
   category    Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   videoUrl    String? // Main course video URL
@@ -118,10 +142,32 @@ model CourseSchedule {
   isRecurring  Boolean       @default(false)
   isActive     Boolean       @default(true)
   
+  bookings     CourseBooking[]
+  
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   @@map("course_schedules")
+}
+
+model CourseBooking {
+  id           String         @id @default(uuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduleId   String
+  schedule     CourseSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  status       BookingStatus  @default(CONFIRMED)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([userId, scheduleId])
+  @@map("course_bookings")
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
 }
 
 model Contact {
@@ -472,9 +518,219 @@ model Notification {
   @@map("notifications")
 }
 
+// ============================================
+// GAMIFICATION SYSTEM
+// ============================================
+
+model UserGamification {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // XP and Level
+  totalXp   Int      @default(0)
+  totalPoints Int    @default(0)
+  level     Int      @default(1)
+  
+  // Statistics
+  postsCount      Int @default(0)
+  ordersCount     Int @default(0)
+  coursesCount    Int @default(0)
+  commentsCount   Int @default(0)
+  likesCount      Int @default(0)
+  
+  // Streaks
+  currentStreak   Int      @default(0)
+  longestStreak   Int      @default(0)
+  lastLoginDate   DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("user_gamification")
+}
+
+model Badge {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  icon        String   // Icon name or emoji
+  category    BadgeCategory
+  requirement Int      // Required count to unlock
+  xpReward    Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  
+  userBadges  UserBadge[]
+  
+  @@map("badges")
+}
+
+enum BadgeCategory {
+  SOCIAL
+  FITNESS
+  SHOPPING
+  CONSISTENCY
+  LEVEL
+  SPECIAL
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  
+  earnedAt  DateTime @default(now())
+  
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model XpTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amount      Int
+  action      XpAction
+  description String?
+  metadata    Json?    // Store additional context
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("xp_transactions")
+}
+
+enum XpAction {
+  POST_CREATED
+  ORDER_COMPLETED
+  COMMENT_ADDED
+  POST_LIKED
+  COURSE_COMPLETED
+  BMI_RECORDED
+  POST_SHARED
+  PROFILE_UPDATED
+  DAILY_LOGIN
+  BADGE_EARNED
+}
+
 enum NotificationType {
   POST_CREATED
   STORY_CREATED
   FRIEND_REQUEST
   FRIEND_ACCEPTED
+  PRIVATE_SESSION_REQUEST
+  PRIVATE_SESSION_ACCEPTED
+  PRIVATE_SESSION_DECLINED
+  PRIVATE_SESSION_CANCELLED
+}
+
+// E-commerce Models
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  pointsPrice Int?
+  imageUrl    String?
+  stock       Int      @default(0)
+  category    String?  // Optional grouping
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  orderItems  OrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalAmount   Float
+  status        OrderStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  items         OrderItem[]
+  payment       Payment?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  price     Float    // Price at time of purchase
+
+  @@map("order_items")
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  stripePaymentId String   @unique
+  amount          Float
+  currency        String   @default("usd")
+  status          String   // Stripe status
+  createdAt       DateTime @default(now())
+
+  @@map("payments")
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// ============================================
+// PRIVATE SESSIONS
+// ============================================
+
+model PrivateSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("ClientSessions", fields: [userId], references: [id], onDelete: Cascade)
+  coachId   String
+  coach     User     @relation("CoachSessions", fields: [coachId], references: [id], onDelete: Cascade)
+  
+  date      DateTime // The specific date of the session
+  startTime String   // "HH:mm"
+  endTime   String   // "HH:mm"
+  
+  status    PrivateSessionStatus @default(PENDING)
+  note      String?  // request note from user
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("private_sessions")
+}
+
+enum PrivateSessionStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  COMPLETED
 }

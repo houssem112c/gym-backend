@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationType, Role } from '@prisma/client';
+import { NotificationType, Role, XpAction } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { GamificationService } from '../gamification/gamification.service';
 
 @Injectable()
 export class FeedService {
     constructor(
         private prisma: PrismaService,
         private notificationsService: NotificationsService,
+        private gamificationService: GamificationService,
     ) { }
 
     async createPost(userId: string, content?: string, mediaUrls: string[] = []) {
@@ -71,6 +73,9 @@ export class FeedService {
         } catch (error) {
             console.error('Failed to trigger notifications for post:', error);
         }
+
+        // Award XP for creating post
+        await this.gamificationService.awardXp(userId, XpAction.POST_CREATED, 5, { postId: post.id });
 
         return post;
     }
@@ -144,7 +149,7 @@ export class FeedService {
         });
     }
 
-    async getPostsByUser(userId: string) {
+    async getUserPosts(userId: string) {
         return this.prisma.feedPost.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
@@ -168,13 +173,14 @@ export class FeedService {
     }
 
     async likePost(userId: string, postId: string) {
-        return this.prisma.feedLike.upsert({
+        const like = await this.prisma.feedLike.upsert({
             where: {
                 userId_postId: { userId, postId },
             },
             create: { userId, postId },
             update: {},
         });
+
     }
 
     async unlikePost(userId: string, postId: string) {
@@ -186,7 +192,7 @@ export class FeedService {
     }
 
     async addComment(userId: string, postId: string, content: string) {
-        return this.prisma.feedComment.create({
+        const comment = await this.prisma.feedComment.create({
             data: {
                 userId,
                 postId,
@@ -196,6 +202,11 @@ export class FeedService {
                 user: { select: { id: true, name: true, avatar: true } },
             },
         });
+
+        // Award XP for commenting
+        await this.gamificationService.awardXp(userId, XpAction.COMMENT_ADDED, 2, { postId, commentId: comment.id });
+
+        return comment;
     }
 
     async getComments(postId: string) {
@@ -269,6 +280,9 @@ export class FeedService {
         } catch (error) {
             console.error('Failed to trigger share notification:', error);
         }
+
+        // Award XP for sharing post
+        await this.gamificationService.awardXp(userId, XpAction.POST_SHARED, 3, { sharedPostId: sharedPost.id, originalPostId });
 
         return sharedPost;
     }

@@ -18,7 +18,7 @@ export class WorkoutPlansController {
 
     @Post()
     @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, (Role as any).COACH)
     @UseInterceptors(FileInterceptor('image'))
     async create(
         @Body() body: any,
@@ -66,7 +66,7 @@ export class WorkoutPlansController {
 
     @Patch(':id')
     @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, (Role as any).COACH)
     @UseInterceptors(FileInterceptor('image'))
     async update(
         @Param('id') id: string,

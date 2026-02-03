@@ -23,7 +23,7 @@ import { Role } from '@prisma/client';
 
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
+@Roles(Role.ADMIN, (Role as any).COACH)
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
 
@@ -46,25 +46,11 @@ export class UsersController {
         return this.usersService.findAll();
     }
 
-    @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.usersService.findOne(id);
+    @Get('coaches')
+    listCoaches() {
+        return this.usersService.listCoaches();
     }
 
-    @Patch(':id')
-    update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-        return this.usersService.update(id, updateUserDto);
-    }
-
-    @Delete(':id')
-    remove(@Param('id') id: string) {
-        return this.usersService.remove(id);
-    }
-
-    @Patch(':id/status')
-    toggleStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
-        return this.usersService.update(id, { isActive });
-    }
     @Get('export/excel')
     async exportUsers(@Res() res: Response) {
         const buffer = await this.usersService.exportToExcel();
@@ -76,5 +62,31 @@ export class UsersController {
         });
 
         res.end(buffer);
+    }
+
+    @Get(':id')
+    findOne(@Param('id') id: string) {
+        return this.usersService.findOne(id);
+    }
+
+    @Patch(':id')
+    update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+        return this.usersService.update(id, updateUserDto);
+    }
+
+    @Patch(':id/coach')
+    assignCoach(@Param('id') id: string, @Body('coachId') coachId: string) {
+        return this.usersService.assignCoach(id, coachId);
+    }
+
+    @Delete(':id')
+    @Roles(Role.ADMIN)
+    remove(@Param('id') id: string) {
+        return this.usersService.remove(id);
+    }
+
+    @Patch(':id/status')
+    toggleStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+        return this.usersService.update(id, { isActive });
     }
 }

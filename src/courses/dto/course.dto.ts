@@ -27,6 +27,10 @@ export class CreateCourseDto {
 
   @IsString()
   @IsOptional()
+  instructorId?: string;
+
+  @IsString()
+  @IsOptional()
   videoUrl?: string;
 
   @IsString()
@@ -60,6 +64,10 @@ export class UpdateCourseDto {
   @IsString()
   @IsOptional()
   categoryId?: string;
+
+  @IsString()
+  @IsOptional()
+  instructorId?: string;
 
   @IsString()
   @IsOptional()

@@ -175,6 +175,47 @@ export class UsersService {
         return results;
     }
 
+    async listCoaches() {
+        return this.prisma.user.findMany({
+            where: { role: 'COACH' },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+                role: true,
+                isActive: true,
+                phone: true,
+                bio: true,
+                city: true,
+                country: true,
+                createdAt: true,
+            },
+        });
+    }
+
+    async getMyUsers(coachId: string) {
+        return this.prisma.user.findMany({
+            where: { coachId },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                avatar: true,
+                phone: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async assignCoach(userId: string, coachId: string) {
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: { coachId },
+        });
+    }
+
     async exportToExcel() {
         const users = await this.prisma.user.findMany({
             include: {

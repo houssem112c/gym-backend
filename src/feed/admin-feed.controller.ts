@@ -7,7 +7,7 @@ import { Role } from '@prisma/client';
 
 @Controller('admin/feed')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
+@Roles(Role.ADMIN, (Role as any).COACH)
 export class AdminFeedController {
     constructor(private readonly feedService: FeedService) { }
 
