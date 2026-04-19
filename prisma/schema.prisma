@@ -48,6 +48,9 @@ model User {
   sentRequests     Friendship[] @relation("SentRequests")
   receivedRequests Friendship[] @relation("ReceivedRequests")
   orders           Order[]
+
+  // 3D avatar metadata (provider-based)
+  userAvatar      UserAvatar?
   
   // Gamification
   gamification     UserGamification?
@@ -78,6 +81,35 @@ enum Role {
   ADMIN
   COACH
   USER
+}
+
+enum AvatarProvider {
+  READY_PLAYER_ME
+  AVATURN
+  INTERNAL
+}
+
+model UserAvatar {
+  id               String         @id @default(uuid())
+  userId           String         @unique
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider         AvatarProvider
+  providerAvatarId String
+  providerPreviewUrl String?
+  providerModelUrl String?
+
+  // Optional: if you mirror provider models to Supabase, store bucket+path here
+  modelBucket      String?
+  modelPath        String?
+
+  // Optional provider payload (versioning, extra settings)
+  config           Json?
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("user_avatars")
 }
 
 model Category {

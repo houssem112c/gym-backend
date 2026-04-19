@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log('Starting database seed...');
   // Create admin user
   const adminEmail = 'admin@gym.com';
   const adminPassword = 'admin123';
@@ -35,6 +36,35 @@ async function main() {
       email: admin.email,
       name: admin.name,
       role: admin.role,
+    });
+  }
+
+  // Create a second admin (Houssem) for testing
+  const houssemEmail = 'houssem.benmabrouk12@gmail.com';
+  const houssemPassword = 'admin123';
+
+  const existingHoussem = await prisma.user.findUnique({
+    where: { email: houssemEmail },
+  });
+
+  if (existingHoussem) {
+    console.log('Houssem admin user already exists');
+  } else {
+    const hashedHoussemPassword = await bcrypt.hash(houssemPassword, 10);
+    const houssem = await prisma.user.create({
+      data: {
+        email: houssemEmail,
+        password: hashedHoussemPassword,
+        name: 'Houssem',
+        role: 'ADMIN',
+      },
+    });
+
+    console.log('Houssem admin user created:', {
+      id: houssem.id,
+      email: houssem.email,
+      name: houssem.name,
+      role: houssem.role,
     });
   }
 
@@ -191,6 +221,8 @@ async function main() {
   } else {
     console.log('Products already exist, skipping seed');
   }
+
+  console.log('Database seeding completed successfully!');
 }
 
 main()

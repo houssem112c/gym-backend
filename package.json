@@ -5,6 +5,9 @@
   "author": "",
   "private": true,
   "license": "MIT",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "scripts": {
     "build": "npx prisma generate && npx nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -15,6 +18,7 @@
     "start:azure": "node dist/src/main.js",
     "migrate:deploy": "npx prisma migrate deploy",
     "migrate:dev": "npx prisma migrate dev",
+    "seed": "npx prisma db seed",
     "db:seed": "ts-node prisma/seed.ts",
     "db:reset": "npx prisma migrate reset --force",
     "prisma:generate": "npx prisma generate",
