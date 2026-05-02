@@ -83,27 +83,22 @@ enum Role {
   USER
 }
 
-enum AvatarProvider {
-  READY_PLAYER_ME
-  AVATURN
-  INTERNAL
-}
-
 model UserAvatar {
   id               String         @id @default(uuid())
   userId           String         @unique
   user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  provider         AvatarProvider
-  providerAvatarId String
-  providerPreviewUrl String?
-  providerModelUrl String?
+  // 2D Realistic Avatar Configuration
+  bodyShape        String         @default("mesomorph") // ectomorph, mesomorph, endomorph, etc.
+  skinTone         String         @default("#FFE0BD")
+  hairStyle        String         @default("short")
+  hairColor        String         @default("#000000")
+  faceStyle        String         @default("face_1")
+  eyeStyle         String         @default("default")
+  mouthStyle       String         @default("smile")
+  outfit           String         @default("gym_wear_1")
 
-  // Optional: if you mirror provider models to Supabase, store bucket+path here
-  modelBucket      String?
-  modelPath        String?
-
-  // Optional provider payload (versioning, extra settings)
+  // Additional flexible configuration payload
   config           Json?
 
   createdAt        DateTime       @default(now())
@@ -650,6 +645,7 @@ enum XpAction {
 
 enum NotificationType {
   POST_CREATED
+  POST_SHARED
   STORY_CREATED
   FRIEND_REQUEST
   FRIEND_ACCEPTED

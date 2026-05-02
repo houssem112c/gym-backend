@@ -17,6 +17,11 @@ export class FeedController {
         return this.feedService.getUserPosts(userId);
     }
 
+    @Get(':id')
+    async getPostById(@Request() req, @Param('id') id: string) {
+        return this.feedService.getPostById(req.user.id, id);
+    }
+
     @Post()
     async createPost(@Request() req, @Body() body: { content?: string; mediaUrls?: string[] }) {
         return this.feedService.createPost(req.user.id, body.content, body.mediaUrls);
@@ -45,5 +50,14 @@ export class FeedController {
     @Post(':id/share')
     async sharePost(@Request() req, @Param('id') id: string, @Body('content') content?: string) {
         return this.feedService.sharePost(req.user.id, id, content);
+    }
+
+    @Post(':id/share-to-friend/:friendId')
+    async sharePostToFriend(
+        @Request() req,
+        @Param('id') id: string,
+        @Param('friendId') friendId: string,
+    ) {
+        return this.feedService.sharePostToFriend(req.user.id, id, friendId);
     }
 }

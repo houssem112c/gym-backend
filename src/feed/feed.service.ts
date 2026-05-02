@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType, Role, XpAction } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -121,6 +121,50 @@ export class FeedService {
                 }
             },
         });
+    }
+
+    async getPostById(requestingUserId: string, postId: string) {
+        const post = await this.prisma.feedPost.findUnique({
+            where: { id: postId },
+            include: {
+                user: { select: { id: true, name: true, avatar: true, role: true } },
+                media: { orderBy: { order: 'asc' } },
+                _count: { select: { likes: true, comments: true } },
+                likes: true,
+                sharedPost: {
+                    include: {
+                        user: { select: { id: true, name: true, avatar: true } },
+                        media: { orderBy: { order: 'asc' } },
+                    },
+                },
+            },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        const isOwner = post.userId === requestingUserId;
+        const isAdminPost = post.user.role === Role.ADMIN;
+
+        if (!isOwner && !isAdminPost) {
+            const friendship = await this.prisma.friendship.findFirst({
+                where: {
+                    status: 'ACCEPTED',
+                    OR: [
+                        { requesterId: requestingUserId, addresseeId: post.userId },
+                        { requesterId: post.userId, addresseeId: requestingUserId },
+                    ],
+                },
+                select: { id: true },
+            });
+
+            if (!friendship) {
+                throw new ForbiddenException('You do not have access to this post');
+            }
+        }
+
+        return post;
     }
 
     async findAllAdmin() {
@@ -271,7 +315,7 @@ export class FeedService {
                 await this.notificationsService.createNotification({
                     userId: originalPost.userId,
                     actorId: userId,
-                    type: NotificationType.POST_CREATED, // Maybe add SHARE_POST type later
+                    type: NotificationType.POST_SHARED,
                     referenceId: sharedPost.id,
                     title: 'Post Shared',
                     message: `${sharedPost.user.name} shared your post.`,
@@ -285,5 +329,47 @@ export class FeedService {
         await this.gamificationService.awardXp(userId, XpAction.POST_SHARED, 3, { sharedPostId: sharedPost.id, originalPostId });
 
         return sharedPost;
+    }
+
+    async sharePostToFriend(senderId: string, postId: string, friendId: string) {
+        const friendship = await this.prisma.friendship.findFirst({
+            where: {
+                status: 'ACCEPTED',
+                OR: [
+                    { requesterId: senderId, addresseeId: friendId },
+                    { requesterId: friendId, addresseeId: senderId },
+                ],
+            },
+            select: { id: true },
+        });
+
+        if (!friendship) {
+            throw new ForbiddenException('You can only share posts with friends');
+        }
+
+        const sender = await this.prisma.user.findUnique({
+            where: { id: senderId },
+            select: { name: true },
+        });
+
+        if (!sender) {
+            throw new NotFoundException('Sender not found');
+        }
+
+        // Ensure the post exists (and is accessible to the sender via normal feed rules).
+        await this.getPostById(senderId, postId);
+
+        await this.notificationsService.createNotification({
+            userId: friendId,
+            actorId: senderId,
+            type: NotificationType.POST_SHARED,
+            referenceId: postId,
+            title: 'Post Shared',
+            message: `${sender.name} shared a post with you.`,
+        });
+
+        await this.gamificationService.awardXp(senderId, XpAction.POST_SHARED, 1, { postId, friendId });
+
+        return { ok: true };
     }
 }

@@ -1,30 +1,24 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Post,
-    Req,
-    UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AvatarsService } from './avatars.service';
-import { CommitProviderAvatarDto } from './dto/commit-provider-avatar.dto';
-import { MirrorProviderModelDto } from './dto/mirror-provider-model.dto';
+import { SaveAvatarConfigDto } from './dto/save-avatar-config.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('avatars')
 export class AvatarsController {
   constructor(private readonly avatarsService: AvatarsService) {}
 
-  @Post('me/provider/commit')
-  async commitProviderAvatar(@Req() req, @Body() dto: CommitProviderAvatarDto) {
-    return this.avatarsService.commitProviderAvatar(req.user.id, dto);
-  }
-
-  @Post('me/provider/mirror')
-  async mirrorProviderModel(@Req() req, @Body() dto: MirrorProviderModelDto) {
-    return this.avatarsService.mirrorProviderModel(req.user.id, dto);
+  @Post('me/config')
+  async saveAvatarConfig(@Req() req, @Body() dto: SaveAvatarConfigDto) {
+    return this.avatarsService.saveAvatarConfig(req.user.id, dto);
   }
 
   @Get('me')
