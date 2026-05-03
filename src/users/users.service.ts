@@ -18,6 +18,7 @@ export class UsersService {
                 phone: true,
                 avatar: true,
                 createdAt: true,
+                coachId: true,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -71,6 +72,7 @@ export class UsersService {
             where: { id },
             include: {
                 measurements: { orderBy: { createdAt: 'desc' }, take: 1 },
+                userAvatar: true,
             }
         });
     }
@@ -212,7 +214,7 @@ export class UsersService {
     async assignCoach(userId: string, coachId: string) {
         return this.prisma.user.update({
             where: { id: userId },
-            data: { coachId },
+            data: { coachId: coachId || null },
         });
     }
 

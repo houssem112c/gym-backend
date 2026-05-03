@@ -53,6 +53,35 @@ export class PrivateSessionsService {
     }
 
     // ----------------------------------------------------------------
+    // CREATE COACH SESSION
+    // ----------------------------------------------------------------
+    async createCoachSession(coachId: string, dto: { userId: string; date: string; startTime: string; endTime: string; note?: string }) {
+        const session = await this.prisma.privateSession.create({
+            data: {
+                coachId,
+                userId: dto.userId,
+                date: new Date(dto.date),
+                startTime: dto.startTime,
+                endTime: dto.endTime,
+                note: dto.note,
+                status: PrivateSessionStatus.ACCEPTED,
+            },
+        });
+
+        // Notify User
+        await this.notificationsService.createNotification({
+            userId: dto.userId,
+            actorId: coachId,
+            type: NotificationType.PRIVATE_SESSION_ACCEPTED,
+            title: 'New Private Session Scheduled',
+            message: 'Your coach has scheduled a private session with you.',
+            referenceId: session.id
+        });
+
+        return session;
+    }
+
+    // ----------------------------------------------------------------
     // RESPOND TO REQUEST
     // ----------------------------------------------------------------
     async respondToRequest(sessionId: string, coachId: string, dto: RespondPrivateSessionDto) {

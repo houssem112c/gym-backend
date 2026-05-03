@@ -23,6 +23,24 @@ export class GamificationService {
             });
         }
 
+        // Sync with transactions table if out of sync
+        const aggregate = await this.prisma.xpTransaction.aggregate({
+            where: { userId },
+            _sum: { amount: true }
+        });
+
+        const actualXp = aggregate._sum.amount || 0;
+        if (actualXp !== gamification.totalXp) {
+            const newLevel = this.calculateLevel(actualXp);
+            gamification = await this.prisma.userGamification.update({
+                where: { userId },
+                data: {
+                    totalXp: actualXp,
+                    level: newLevel,
+                },
+            });
+        }
+
         const xpToNextLevel = this.calculateXpForLevel(gamification.level + 1);
         const currentLevelXp = this.calculateXpForLevel(gamification.level);
 

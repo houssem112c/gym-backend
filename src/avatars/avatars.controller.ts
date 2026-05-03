@@ -3,11 +3,15 @@ import {
   Controller,
   Delete,
   Get,
+  Param,
   Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 import { AvatarsService } from './avatars.service';
 import { SaveAvatarConfigDto } from './dto/save-avatar-config.dto';
 
@@ -29,5 +33,15 @@ export class AvatarsController {
   @Delete('me')
   async deleteMyAvatar(@Req() req) {
     return this.avatarsService.deleteMyAvatar(req.user.id);
+  }
+
+  @Post('admin/user/:userId')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  async saveAvatarConfigAdmin(
+    @Param('userId') userId: string,
+    @Body() dto: SaveAvatarConfigDto,
+  ) {
+    return this.avatarsService.saveAvatarConfig(userId, dto);
   }
 }

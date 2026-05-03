@@ -17,6 +17,12 @@ export class PrivateSessionsController {
         return this.privateSessionsService.createRequest(user.id, createPrivateSessionDto);
     }
 
+    @Post('coach/create')
+    createCoachSession(@Req() req: any, @Body() dto: { userId: string; date: string; startTime: string; endTime: string; note?: string }) {
+        const user = req.user as User;
+        return this.privateSessionsService.createCoachSession(user.id, dto);
+    }
+
     @Get('availability')
     getAvailability(@Query('coachId') coachId: string, @Query('date') date: string) {
         return this.privateSessionsService.getCoachAvailability(coachId, date);
