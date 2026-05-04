@@ -87,8 +87,8 @@ export class OrdersService {
             },
         });
 
-        // Award XP if order is paid
-        if (isPaid) {
+        // Award XP if order is paid and NOT using points
+        if (isPaid && paymentMethod !== 'POINTS') {
             await this.gamificationService.awardXp(userId, XpAction.ORDER_COMPLETED, 15, { orderId: order.id, amount: totalAmount });
         }
 
