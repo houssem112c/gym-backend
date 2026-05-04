@@ -27,5 +27,5 @@ export class CreateOrderDto {
 
     @IsString()
     @IsOptional()
-    paymentMethod?: 'MONEY' | 'POINTS';
+    paymentMethod?: 'MONEY' | 'POINTS' | 'CASH';
 }

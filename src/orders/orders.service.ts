@@ -66,14 +66,16 @@ export class OrdersService {
                 items: {
                     create: orderItemsData,
                 },
-                payment: isPaid ? {
+                payment: (isPaid || paymentMethod === 'CASH') ? {
                     create: {
                         stripePaymentId: paymentMethod === 'POINTS' 
                             ? `POINTS_${Date.now()}_${Math.random().toString(36).substring(7)}` 
-                            : paymentIntentId,
+                            : paymentMethod === 'CASH'
+                                ? `CASH_${Date.now()}_${Math.random().toString(36).substring(7)}`
+                                : paymentIntentId,
                         amount: totalAmount,
                         currency: paymentMethod === 'POINTS' ? 'XP' : 'usd',
-                        status: 'succeeded',
+                        status: paymentMethod === 'CASH' ? 'pending' : 'succeeded',
                     }
                 } : undefined,
             },
@@ -153,15 +155,31 @@ export class OrdersService {
     async updateStatus(id: string, updateOrderDto: UpdateOrderDto) {
         const order = await this.prisma.order.findUnique({
             where: { id },
+            include: { payment: true }
         });
 
         if (!order) {
             throw new NotFoundException('Order not found');
         }
 
-        return this.prisma.order.update({
+        const updatedOrder = await this.prisma.order.update({
             where: { id },
             data: updateOrderDto,
+            include: { payment: true }
         });
+
+        // If payment status changed from UNPAID to PAID, award XP
+        if (order.paymentStatus === PaymentStatus.UNPAID && updatedOrder.paymentStatus === PaymentStatus.PAID) {
+            // Check if it was a POINTS payment (points shouldn't get awards per previous request)
+            const isPoints = updatedOrder.payment?.stripePaymentId?.startsWith('POINTS_');
+            if (!isPoints) {
+                await this.gamificationService.awardXp(order.userId, XpAction.ORDER_COMPLETED, 15, { 
+                    orderId: order.id, 
+                    amount: order.totalAmount 
+                });
+            }
+        }
+
+        return updatedOrder;
     }
 }
