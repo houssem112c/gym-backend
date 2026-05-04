@@ -68,7 +68,9 @@ export class OrdersService {
                 },
                 payment: isPaid ? {
                     create: {
-                        stripePaymentId: paymentMethod === 'POINTS' ? 'POINTS_PAYMENT' : paymentIntentId,
+                        stripePaymentId: paymentMethod === 'POINTS' 
+                            ? `POINTS_${Date.now()}_${Math.random().toString(36).substring(7)}` 
+                            : paymentIntentId,
                         amount: totalAmount,
                         currency: paymentMethod === 'POINTS' ? 'XP' : 'usd',
                         status: 'succeeded',
