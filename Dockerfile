@@ -35,4 +35,4 @@ RUN npm prune --production
 EXPOSE 3001
 
 # Start the application
-CMD ["node", "dist/src/main.js"]
+CMD ["./startup.sh"]
