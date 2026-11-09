@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { GamificationService } from '../gamification/gamification.service';
 
 describe('AuthService', () => {
     let service: AuthService;
@@ -30,6 +31,11 @@ describe('AuthService', () => {
             if (key === 'JWT_REFRESH_SECRET') return 'refreshSecret';
             return null;
         }),
+        getOrThrow: jest.fn((key: string) => {
+            if (key === 'JWT_SECRET') return 'secret';
+            if (key === 'JWT_REFRESH_SECRET') return 'refreshSecret';
+            throw new Error(`Missing config: ${key}`);
+        }),
     };
 
     beforeEach(async () => {
@@ -39,6 +45,10 @@ describe('AuthService', () => {
                 { provide: PrismaService, useValue: mockPrismaService },
                 { provide: JwtService, useValue: mockJwtService },
                 { provide: ConfigService, useValue: mockConfigService },
+                { provide: GamificationService, useValue: {
+                    updateLoginStreak: jest.fn(),
+                    awardXp: jest.fn(),
+                } },
             ],
         }).compile();
 

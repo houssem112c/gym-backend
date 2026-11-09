@@ -5,6 +5,9 @@ import { CreatePrivateSessionDto } from './dto/create-private-session.dto';
 import { RespondPrivateSessionDto } from './dto/respond-private-session.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { User } from '@prisma/client';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 
 @Controller('private-sessions')
 @UseGuards(JwtAuthGuard)
@@ -35,10 +38,11 @@ export class PrivateSessionsController {
     }
 
     @Get('coach-requests')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(Role.ADMIN, Role.COACH)
     getCoachRequests(@Req() req: any) {
-        // Ideally check if user is Coach or Admin
         const user = req.user as User;
-        return this.privateSessionsService.getCoachRequests(user.id);
+        return this.privateSessionsService.getCoachRequests(user.id, user.role === Role.ADMIN);
     }
 
     @Patch(':id/respond')

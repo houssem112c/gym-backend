@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,9 +7,14 @@ import { XpAction } from '@prisma/client';
 import { GamificationService } from '../gamification/gamification.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { createHash, randomBytes } from 'crypto';
+import { RequestPasswordResetDto, ResetPasswordDto } from './dto/auth.dto';
+import { authenticator } from 'otplib';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -33,11 +38,15 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
+    const verificationToken = randomBytes(32).toString('hex');
     const user = await this.prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
+        emailVerifiedAt: null,
+        emailVerificationTokenHash: createHash('sha256').update(verificationToken).digest('hex'),
+        emailVerificationExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });
 
@@ -46,9 +55,17 @@ export class AuthService {
 
     // Store refresh token
     await this.updateRefreshToken(user.id, tokens.refreshToken);
+    await this.sendEmail(
+      user.email,
+      'Verify your Gym SaaS email',
+      `Verify your email with this token: ${verificationToken}`,
+    );
 
     return {
       ...tokens,
+      ...(this.configService.get('NODE_ENV') !== 'production'
+        ? { emailVerificationToken: verificationToken }
+        : {}),
       user: {
         id: user.id,
         email: user.email,
@@ -76,12 +93,20 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    if (user.isActive === false) {
+      throw new UnauthorizedException('Account is suspended');
+    }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+    if (user.role === 'ADMIN' && user.mfaEnabled) {
+      if (!loginDto.otp || !authenticator.verify({ token: loginDto.otp, secret: user.mfaSecret || '' })) {
+        throw new UnauthorizedException('MFA code required');
+      }
     }
 
     // Generate tokens
@@ -126,8 +151,13 @@ export class AuthService {
         email: true,
         name: true,
         role: true,
+        isActive: true,
       },
     });
+
+    if (user && !user.isActive) {
+      throw new UnauthorizedException('Account is suspended');
+    }
 
     return user;
   }
@@ -150,11 +180,12 @@ export class AuthService {
         email: true,
         name: true,
         role: true,
+        isActive: true,
         refreshToken: true,
       },
     });
 
-    if (!user || !user.refreshToken) {
+    if (!user || user.isActive === false || !user.refreshToken) {
       throw new UnauthorizedException('Access Denied');
     }
 
@@ -188,6 +219,105 @@ export class AuthService {
     });
   }
 
+  async requestPasswordReset(dto: RequestPasswordResetDto) {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (!user) return { message: 'If the account exists, reset instructions will be sent.' };
+
+    const token = randomBytes(32).toString('hex');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetTokenHash: createHash('sha256').update(token).digest('hex'),
+        passwordResetExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+    await this.sendEmail(
+      user.email,
+      'Reset your Gym SaaS password',
+      `Reset your password with this token: ${token}`,
+    );
+
+    return {
+      message: 'If the account exists, reset instructions will be sent.',
+      ...(this.configService.get('NODE_ENV') !== 'production' ? { resetToken: token } : {}),
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const tokenHash = createHash('sha256').update(dto.token).digest('hex');
+    const user = await this.prisma.user.findFirst({
+      where: {
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpiresAt: { gt: new Date() },
+      },
+    });
+    if (!user) throw new UnauthorizedException('Invalid or expired reset token');
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: await bcrypt.hash(dto.password, 10),
+        passwordResetTokenHash: null,
+        passwordResetExpiresAt: null,
+        refreshToken: null,
+      },
+    });
+    return { message: 'Password reset successfully' };
+  }
+
+  async verifyEmail(token: string) {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const user = await this.prisma.user.findFirst({
+      where: { emailVerificationTokenHash: tokenHash, emailVerificationExpiresAt: { gt: new Date() } },
+    });
+    if (!user) throw new UnauthorizedException('Invalid or expired verification token');
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: new Date(), emailVerificationTokenHash: null, emailVerificationExpiresAt: null },
+    });
+    return { message: 'Email verified successfully' };
+  }
+
+  async setupMfa(userId: string) {
+    const secret = authenticator.generateSecret();
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    await this.prisma.user.update({ where: { id: userId }, data: { mfaSecret: secret, mfaEnabled: false } });
+    return {
+      secret,
+      otpauthUrl: authenticator.keyuri(user.email, 'Gym SaaS', secret),
+    };
+  }
+
+  async enableMfa(userId: string, token: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.mfaSecret || !authenticator.verify({ token, secret: user.mfaSecret })) {
+      throw new UnauthorizedException('Invalid MFA code');
+    }
+    await this.prisma.user.update({ where: { id: userId }, data: { mfaEnabled: true } });
+    return { enabled: true };
+  }
+
+  private async sendEmail(to: string, subject: string, text: string) {
+    const host = this.configService.get<string>('SMTP_HOST');
+    const user = this.configService.get<string>('SMTP_USER');
+    const password = this.configService.get<string>('SMTP_PASSWORD');
+    const from = this.configService.get<string>('SMTP_FROM') || user;
+    if (!host || !user || !password || !from) {
+      this.logger.warn(`Email delivery is not configured; message for ${to} was not sent`);
+      return;
+    }
+
+    const transport = nodemailer.createTransport({
+      host,
+      port: Number(this.configService.get<string>('SMTP_PORT', '587')),
+      secure: Number(this.configService.get<string>('SMTP_PORT', '587')) === 465,
+      auth: { user, pass: password },
+    });
+    await transport.sendMail({ from, to, subject, text });
+  }
+
   private async generateTokens(userId: string, email: string) {
     const payload = { sub: userId, email };
 
@@ -197,8 +327,8 @@ export class AuthService {
         expiresIn: '15m',
       }),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: '7d',
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d'),
       }),
     ]);
 

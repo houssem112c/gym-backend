@@ -27,6 +27,7 @@ import { GamificationModule } from './gamification/gamification.module';
 import { CoachModule } from './coach/coach.module';
 import { PrivateSessionsModule } from './private-sessions/private-sessions.module';
 import { AvatarsModule } from './avatars/avatars.module';
+import { OperationsModule } from './operations/operations.module';
 
 
 @Module({
@@ -63,6 +64,7 @@ import { AvatarsModule } from './avatars/avatars.module';
     CoachModule,
     PrivateSessionsModule,
     AvatarsModule,
+    OperationsModule,
   ],
   providers: [
     {

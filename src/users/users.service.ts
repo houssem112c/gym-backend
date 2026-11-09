@@ -7,8 +7,23 @@ import * as XLSX from 'xlsx';
 export class UsersService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll() {
-        return this.prisma.user.findMany({
+    async findAll(page = 1, limit = 25, search?: string, isActive?: boolean) {
+        const take = Math.min(Math.max(limit, 1), 100);
+        const skip = (Math.max(page, 1) - 1) * take;
+        const where = {
+            ...(typeof isActive === 'boolean' ? { isActive } : {}),
+            ...(search ? {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' as const } },
+                    { email: { contains: search, mode: 'insensitive' as const } },
+                ],
+            } : {}),
+        };
+        const [items, total] = await this.prisma.$transaction([
+            this.prisma.user.findMany({
+            where,
+            skip,
+            take,
             select: {
                 id: true,
                 email: true,
@@ -21,7 +36,10 @@ export class UsersService {
                 coachId: true,
             },
             orderBy: { createdAt: 'desc' },
-        });
+            }),
+            this.prisma.user.count({ where }),
+        ]);
+        return { items, total, page: Math.max(page, 1), limit: take };
     }
 
     async searchUsers(query: string, currentUserId: string) {

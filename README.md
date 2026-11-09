@@ -50,10 +50,14 @@ Edit `.env` with your configuration:
 ```env
 DATABASE_URL="postgresql://postgres:your_password@localhost:5432/gym_db?schema=public"
 JWT_SECRET="your-secret-key-change-this-in-production"
-JWT_EXPIRATION="7d"
+JWT_EXPIRATION="15m"
+JWT_REFRESH_SECRET="your-refresh-secret-key-change-this-in-production"
+JWT_REFRESH_EXPIRATION="7d"
+STRIPE_SECRET_KEY="sk_live_replace_me"
+STRIPE_WEBHOOK_SECRET="whsec_replace_me"
 PORT=3001
 NODE_ENV=development
-CORS_ORIGIN="http://localhost:3000"
+CORS_ORIGIN="http://localhost:3000,http://localhost:3002"
 ```
 
 ### 4. Run Database Migrations

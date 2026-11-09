@@ -6,6 +6,8 @@ import {
     Patch,
     Param,
     Delete,
+    Query,
+    ParseIntPipe,
     UseGuards,
     UseInterceptors,
     UploadedFile,
@@ -42,8 +44,13 @@ export class UsersController {
     }
 
     @Get()
-    findAll() {
-        return this.usersService.findAll();
+    findAll(
+        @Query('page', new ParseIntPipe({ optional: true })) page = 1,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit = 25,
+        @Query('search') search?: string,
+        @Query('isActive') isActive?: string,
+    ) {
+        return this.usersService.findAll(page, limit, search, isActive === undefined ? undefined : isActive === 'true');
     }
 
     @Get('coaches')

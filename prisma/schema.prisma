@@ -19,6 +19,15 @@ model User {
   role         Role        @default(USER)
   isActive     Boolean     @default(true)
   refreshToken String?     // Store refresh token for JWT
+  emailVerifiedAt DateTime?
+  emailVerificationTokenHash String?
+  emailVerificationExpiresAt DateTime?
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+  mfaEnabled Boolean @default(false)
+  mfaSecret String?
+  qrCodeHash String? @unique
+  qrCodeIssuedAt DateTime?
   
   // Profile fields
   avatar       String?     // Profile image URL from Supabase
@@ -70,6 +79,9 @@ model User {
   // Private Sessions
   myPrivateSessions PrivateSession[] @relation("ClientSessions")
   coachedPrivateSessions PrivateSession[] @relation("CoachSessions")
+  attendances      Attendance[]
+  waitlistEntries  CourseWaitlist[]
+  auditLogs        AuditLog[] @relation("AuditActor")
   
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -170,6 +182,8 @@ model CourseSchedule {
   isActive     Boolean       @default(true)
   
   bookings     CourseBooking[]
+  waitlistEntries CourseWaitlist[]
+  attendances  Attendance[]
   
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -186,9 +200,77 @@ model CourseBooking {
   status       BookingStatus  @default(CONFIRMED)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  cancelledAt DateTime?
+  cancellationReason String?
+  noShow      Boolean         @default(false)
 
   @@unique([userId, scheduleId])
   @@map("course_bookings")
+}
+
+model CourseWaitlist {
+  id         String       @id @default(uuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduleId String
+  schedule   CourseSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  status     WaitlistStatus @default(WAITING)
+  position   Int
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([userId, scheduleId])
+  @@index([scheduleId, status, position])
+  @@map("course_waitlists")
+}
+
+enum WaitlistStatus {
+  WAITING
+  PROMOTED
+  CANCELLED
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduleId String?
+  schedule  CourseSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  checkedInAt DateTime @default(now())
+  checkedOutAt DateTime?
+  method    String   @default("QR")
+
+  @@index([userId, checkedInAt])
+  @@index([scheduleId, checkedInAt])
+  @@map("attendance")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model StaffInvitation {
+  id        String   @id @default(uuid())
+  email     String
+  role      Role     @default(COACH)
+  tokenHash String   @unique
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([email, expiresAt])
+  @@map("staff_invitations")
 }
 
 enum BookingStatus {

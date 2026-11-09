@@ -168,6 +168,16 @@ export class OrdersService {
             include: { payment: true }
         });
 
+        if (
+            updateOrderDto.paymentStatus === PaymentStatus.PAID &&
+            order.payment?.stripePaymentId.startsWith('CASH_')
+        ) {
+            await this.prisma.payment.update({
+                where: { orderId: id },
+                data: { status: 'succeeded' },
+            });
+        }
+
         // If payment status changed from UNPAID to PAID, award XP
         if (order.paymentStatus === PaymentStatus.UNPAID && updatedOrder.paymentStatus === PaymentStatus.PAID) {
             // Check if it was a POINTS payment (points shouldn't get awards per previous request)

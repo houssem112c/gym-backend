@@ -1,22 +1,31 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   console.log('🚀 Starting Gym Backend Application...');
   console.log('📍 NODE_ENV:', process.env.NODE_ENV || 'development');
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
 
   // Enable CORS for frontend, admin, and mobile web app
   const isDevelopment = process.env.NODE_ENV !== 'production';
+  const configuredOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   const allowedOrigins = isDevelopment
     ? [
       'http://localhost:3000',
       'http://localhost:3002',
-      /^http:\/\/localhost:\d+$/  // Allow any localhost port for Flutter web dev server
+      /^http:\/\/localhost:\d+$/,  // Allow any localhost port for Flutter web dev server
+      ...configuredOrigins,
     ]
     : [
       // Allow localhost for development and testing
@@ -25,17 +34,25 @@ async function bootstrap() {
       /^http:\/\/localhost:\d+$/,
       // Allow Azure Frontend
       'https://urbangyms-h4cye7eygwdub8d3.southafricanorth-01.azurewebsites.net',
-      // Allow all Vercel domains for admin panel
-      /^https:\/\/.*\.vercel\.app$/,
       // Allow custom domains if set
       process.env.FRONTEND_URL,
       process.env.ADMIN_URL,
+      ...configuredOrigins,
     ].filter(Boolean);
 
-  console.log('🌐 CORS enabled for origins:', allowedOrigins);
-
   app.enableCors({
-    origin: "*",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.some((allowedOrigin) =>
+        allowedOrigin instanceof RegExp
+          ? allowedOrigin.test(origin)
+          : allowedOrigin === origin,
+      )) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Origin is not allowed by CORS'));
+    },
     credentials: true,
   });
 
@@ -103,9 +120,17 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   console.log('🔧 Global prefix set to: /api');
 
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Gym SaaS API')
+    .setDescription('Gym operations, memberships, fitness, and commerce API')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
+
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`✅ Application is running on port: ${port}`);
+  logger.log(`Application is running on port: ${port}`);
   console.log(`🌐 API endpoint: http://localhost:${port}/api`);
   console.log(`📁 File uploads: ${isDevelopment ? 'Local ./uploads' : 'Render /tmp'}`);
 }

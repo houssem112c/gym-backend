@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ConfigService } from '@nestjs/config';
 
@@ -16,6 +16,12 @@ export class SupabaseService {
     if (!supabaseUrl || !supabaseKey) {
       console.warn('Supabase credentials not configured. File uploads will not work.');
       return;
+    }
+
+    try {
+      new URL(supabaseUrl);
+    } catch {
+      throw new Error('SUPABASE_URL must be a valid URL');
     }
 
     this.supabase = createClient(supabaseUrl, supabaseKey, {
@@ -40,17 +46,39 @@ export class SupabaseService {
     const sanitizedFileName = originalName.replaceAll(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = folder ? `${folder}/${timestamp}-${sanitizedFileName}` : `${timestamp}-${sanitizedFileName}`;
 
-    const { error } = await this.supabase.storage.from(bucket).upload(fileName, fileBuffer, {
-      upsert: false,
-    });
+    let result: { error: { message: string } | null };
+    try {
+      result = await this.supabase.storage.from(bucket).upload(fileName, fileBuffer, {
+        upsert: false,
+        contentType: this.getContentType(originalName),
+      });
+    } catch (error) {
+      throw new ServiceUnavailableException(
+        'Supabase Storage is unreachable. Check SUPABASE_URL, DNS, and project status.',
+      );
+    }
 
-    if (error) {
-      throw new Error(`Failed to upload file: ${error.message}`);
+    if (result.error) {
+      throw new Error(`Failed to upload file: ${result.error.message}`);
     }
 
     const { data: urlData } = this.supabase.storage.from(bucket).getPublicUrl(fileName);
 
     return urlData.publicUrl;
+  }
+
+  private getContentType(fileName: string): string | undefined {
+    const extension = fileName.toLowerCase().split('.').pop();
+    const contentTypes: Record<string, string> = {
+      mp4: 'video/mp4',
+      webm: 'video/webm',
+      mov: 'video/quicktime',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+    };
+    return extension ? contentTypes[extension] : undefined;
   }
 
   async uploadFileToPath(params: {

@@ -47,6 +47,8 @@ export class CoursesController {
 
   // Debug endpoint to see raw course data
   @Get('debug')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   async debugCourses() {
     const courses = await this.coursesService.findAllCourses();
     console.log('🐛 Debug courses endpoint called');
@@ -69,6 +71,8 @@ export class CoursesController {
 
   // Quick fix: Convert local paths to full URLs
   @Post('fix-local-urls')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   async fixLocalUrls() {
     console.log('🔧 Converting local file paths to full URLs...');
 
@@ -127,6 +131,8 @@ export class CoursesController {
 
   // Migration endpoint to move local files to Supabase
   @Post('migrate-to-supabase')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   async migrateCourses() {
     console.log('🚀 Starting course migration to Supabase...');
 
@@ -289,7 +295,8 @@ export class CoursesController {
 
   // Admin endpoints (protected)
   @Post()
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for testing
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.COACH)
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -418,7 +425,8 @@ export class CoursesController {
   }
 
   @Patch(':id')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for testing
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.COACH)
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -482,7 +490,8 @@ export class CoursesController {
   }
 
   @Put(':id')
-  // @UseGuards(JwtAuthGuard) // Temporarily disabled for testing
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.COACH)
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -546,7 +555,8 @@ export class CoursesController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.COACH)
   remove(@Param('id') id: string) {
     return this.coursesService.removeCourse(id);
   }

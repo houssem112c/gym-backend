@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BmiService, BmiStatus } from './bmi.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { Gender } from './dto/create-bmi-record.dto';
+import { GamificationService } from '../gamification/gamification.service';
 
 describe('BmiService', () => {
     let service: BmiService;
@@ -21,6 +22,7 @@ describe('BmiService', () => {
             providers: [
                 BmiService,
                 { provide: PrismaService, useValue: mockPrismaService },
+                { provide: GamificationService, useValue: { awardXp: jest.fn() } },
             ],
         }).compile();
 

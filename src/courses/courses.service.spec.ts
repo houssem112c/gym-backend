@@ -3,6 +3,7 @@ import { CoursesService } from './courses.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { NotFoundException } from '@nestjs/common';
+import { GamificationService } from '../gamification/gamification.service';
 
 describe('CoursesService', () => {
     let service: CoursesService;
@@ -38,6 +39,7 @@ describe('CoursesService', () => {
                 CoursesService,
                 { provide: PrismaService, useValue: mockPrismaService },
                 { provide: SupabaseService, useValue: mockSupabaseService },
+                { provide: GamificationService, useValue: { awardXp: jest.fn() } },
             ],
         }).compile();
 

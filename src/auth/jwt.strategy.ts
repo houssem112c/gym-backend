@@ -10,14 +10,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
     private authService: AuthService,
   ) {
-    const secret = configService.get('JWT_SECRET');
+    const secret = configService.getOrThrow<string>('JWT_SECRET');
     console.log('🛡️ JWT Strategy initialized');
     console.log('🛡️ JWT_SECRET present:', !!secret);
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: secret || 'your-secret-key',
+      secretOrKey: secret,
     });
   }
 

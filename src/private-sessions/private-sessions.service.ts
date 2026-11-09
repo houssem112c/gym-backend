@@ -206,9 +206,9 @@ export class PrivateSessionsService {
     // ----------------------------------------------------------------
     // GET COACH REQUESTS (Coach)
     // ----------------------------------------------------------------
-    async getCoachRequests(coachId: string) {
+    async getCoachRequests(coachId: string, isAdmin = false) {
         return this.prisma.privateSession.findMany({
-            where: { coachId },
+            where: isAdmin ? undefined : { coachId },
             include: {
                 user: { select: { id: true, name: true, avatar: true, email: true } }
             },
